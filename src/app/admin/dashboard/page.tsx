@@ -1,5 +1,7 @@
 'use client';
 
+import { jsPDF } from "jspdf";
+
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -27,7 +29,9 @@ import {
   MessageCircle,
   BarChart2,
   Percent,
-  Sparkles
+  Sparkles,
+  FileText,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -372,9 +376,64 @@ export default function Dashboard() {
 
   const sendWhatsAppReminder = (member: any) => {
     const dueAmount = parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
-    const text = `Hi ${member.name}, your chit contribution of ₹${dueAmount} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
+    const text = `Hi ${member.name}, your chit contribution of Rs.${dueAmount} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
     const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
+  };
+
+  const sendBulkWhatsAppReminder = () => {
+    const pendingMembers = members.filter(m => {
+      const p = m.payments?.find((p: any) => p.month === selectedMonth);
+      return p?.status !== 'PAID';
+    });
+
+    if (pendingMembers.length === 0) {
+      toast.success("All members have paid for this month!");
+      return;
+    }
+
+    let messageList = `Pending Reminders for ${selectedGroup?.name} (Month ${selectedMonth}):\n\n`;
+    pendingMembers.forEach(m => {
+      const due = parseFloat(customAmounts[m.id]) || selectedGroup?.monthlyContribution;
+      messageList += `- ${m.name} (${m.phone}): Rs.${due}\n`;
+    });
+    
+    navigator.clipboard.writeText(messageList);
+    toast.success(`${pendingMembers.length} pending records copied to clipboard to paste into WhatsApp Broadcast!`);
+  };
+
+  const downloadReceipt = (member: any) => {
+    const payment = member.payments?.find((p: any) => p.month === selectedMonth);
+    const amountPaid = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+    
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("ChitFlow Official Receipt", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Group: ${selectedGroup?.name}`, 20, 40);
+    doc.text(`Cycle: Month ${selectedMonth}`, 20, 50);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 60);
+    
+    doc.line(20, 65, 190, 65);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Received From: ${member.name}`, 20, 75);
+    doc.text(`Phone: ${member.phone}`, 20, 85);
+    doc.text(`Amount Paid: Rs. ${amountPaid}`, 20, 95);
+    doc.text(`Status: PAID`, 20, 105);
+    
+    doc.line(20, 115, 190, 115);
+    
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.text("Thank you for your timely contribution.", 105, 125, { align: "center" });
+    doc.text("This is an electronically generated receipt.", 105, 132, { align: "center" });
+
+    doc.save(`${member.name}_Receipt_Month_${selectedMonth}.pdf`);
+    toast.success(`Receipt downloaded for ${member.name}`);
   };
 
   // Sync custom amounts on month change
@@ -774,7 +833,14 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="flex shrink-0">
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          onClick={sendBulkWhatsAppReminder}
+                          className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-green-200/50 dark:border-green-800/50"
+                        >
+                          <Send size={16} />
+                          Bulk Broadcast
+                        </button>
                         <button
                           onClick={exportToCSV}
                           className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-emerald-200/50 dark:border-emerald-800/50"
@@ -1167,6 +1233,16 @@ export default function Dashboard() {
                                       className="h-10 px-3 rounded-xl border border-green-200 dark:border-green-800/30 text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-all flex items-center justify-center active:scale-[0.96]"
                                     >
                                       <MessageCircle size={18} />
+                                    </button>
+                                  )}
+                                  
+                                  {isPaid && (
+                                    <button
+                                      onClick={() => downloadReceipt(member)}
+                                      title="Download PDF Receipt"
+                                      className="h-10 px-3 rounded-xl border border-blue-200 dark:border-blue-800/30 text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-all flex items-center justify-center active:scale-[0.96]"
+                                    >
+                                      <FileText size={18} />
                                     </button>
                                   )}
                                 </div>
