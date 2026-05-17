@@ -522,7 +522,7 @@ export default function Dashboard() {
 
                 {/* --- Global Analytics Cards --- */}
                 {!isLoadingGroups && groups.length > 0 && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-5 rounded-3xl text-white shadow-lg shadow-blue-500/20 flex items-center gap-4">
                       <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Layers size={22} /></div>
                       <div><p className="text-[10px] font-black uppercase tracking-widest text-blue-200">Total Groups</p><p className="text-3xl font-black">{globalStats.totalGroups}</p></div>
@@ -533,7 +533,7 @@ export default function Dashboard() {
                     </div>
                     <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 rounded-3xl text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4">
                       <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><DollarSign size={22} /></div>
-                      <div><p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Funds Managed</p><p className="text-2xl font-black">{formatCurrency(globalStats.totalFunds)}</p></div>
+                      <div><p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Funds Managed</p><p className="text-xl sm:text-2xl font-black truncate">{formatCurrency(globalStats.totalFunds)}</p></div>
                     </div>
                     <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 rounded-3xl text-white shadow-lg shadow-amber-500/20 flex items-center gap-4">
                       <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Percent size={22} /></div>
@@ -1186,7 +1186,7 @@ export default function Dashboard() {
                     {/* Add member button and search filter */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
                       <div className="relative w-full max-w-md flex items-center gap-3">
-                        <div className="relative flex-1">
+                        <div className="relative flex-1 w-full">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                           <input 
                             type="text" 
@@ -1196,15 +1196,6 @@ export default function Dashboard() {
                             className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-xs shadow-sm"
                           />
                         </div>
-                        <select
-                          value={paymentFilter}
-                          onChange={(e) => setPaymentFilter(e.target.value)}
-                          className="h-11 px-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none"
-                        >
-                          <option value="ALL">All Status</option>
-                          <option value="PAID">Paid Only</option>
-                          <option value="PENDING">Pending Only</option>
-                        </select>
                       </div>
 
                       <button
