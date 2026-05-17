@@ -22,7 +22,12 @@ import {
   TrendingUp,
   Layers,
   Save,
-  Check
+  Check,
+  Download,
+  MessageCircle,
+  BarChart2,
+  Percent,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -189,6 +194,11 @@ export default function Dashboard() {
       return;
     }
 
+    if (selectedGroup && members.length >= selectedGroup.membersLimit) {
+      toast.error(`Cannot add more members. Group limit of ${selectedGroup.membersLimit} reached.`);
+      return;
+    }
+
     setIsSubmittingMember(true);
     try {
       const res = await fetch('/api/admin/customers/add', {
@@ -320,6 +330,53 @@ export default function Dashboard() {
     }
   };
 
+  const exportToCSV = () => {
+    if (!selectedGroup) return;
+    
+    const headers = ['Member Name', 'Phone', 'Chit Lifted', 'Monthly Due', 'Payment Status', 'Cycle'];
+    
+    const rows = filteredMembers.map(m => {
+      const payment = m.payments?.find((p: any) => p.month === selectedMonth);
+      const isPaid = payment?.status === 'PAID';
+      const dueAmount = parseFloat(customAmounts[m.id]) || selectedGroup.monthlyContribution;
+      const isWinner = selectedWinnerId === m.id;
+      const hasWonBefore = m.liftedMonths && m.liftedMonths.some((month: number) => month < selectedMonth);
+      const liftStatus = isWinner ? 'Winner this month' : hasWonBefore ? 'Lifted previously' : 'Not lifted';
+      
+      return [
+        m.name,
+        m.phone,
+        liftStatus,
+        dueAmount,
+        isPaid ? 'PAID' : 'PENDING',
+        `Month ${selectedMonth}`
+      ];
+    });
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${selectedGroup.name}_Month_${selectedMonth}_Ledger.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Ledger downloaded successfully!");
+  };
+
+  const sendWhatsAppReminder = (member: any) => {
+    const dueAmount = parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+    const text = `Hi ${member.name}, your chit contribution of ₹${dueAmount} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
+    const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   // Sync custom amounts on month change
   useEffect(() => {
     if (selectedGroup && members.length > 0) {
@@ -343,6 +400,26 @@ export default function Dashboard() {
       }
     }
   }, [selectedMonth, members, selectedGroup]);
+
+  // Global analytics computed from all groups
+  const globalStats = (() => {
+    const totalGroups = groups.length;
+    const totalFunds = groups.reduce((sum: number, g: any) => sum + (g.totalAmount || 0), 0);
+    const totalMembers = groups.reduce((sum: number, g: any) => sum + (g._count?.members || 0), 0);
+    // Avg fill rate per group, capped at 100%
+    const avgFillRate = totalGroups > 0
+      ? Math.min(
+          Math.round(
+            groups.reduce((sum: number, g: any) => {
+              const cap = g.membersLimit || 1;
+              return sum + Math.min((g._count?.members || 0) / cap, 1);
+            }, 0) / totalGroups * 100
+          ),
+          100
+        )
+      : 0;
+    return { totalGroups, totalFunds, totalMembers, fillRate: avgFillRate };
+  })();
 
   // Computations
   const filteredMembers = members.filter(m => {
@@ -442,6 +519,28 @@ export default function Dashboard() {
                     Create New Group
                   </button>
                 </div>
+
+                {/* --- Global Analytics Cards --- */}
+                {!isLoadingGroups && groups.length > 0 && (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-5 rounded-3xl text-white shadow-lg shadow-blue-500/20 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Layers size={22} /></div>
+                      <div><p className="text-[10px] font-black uppercase tracking-widest text-blue-200">Total Groups</p><p className="text-3xl font-black">{globalStats.totalGroups}</p></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-5 rounded-3xl text-white shadow-lg shadow-indigo-500/20 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Users size={22} /></div>
+                      <div><p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Total Members</p><p className="text-3xl font-black">{globalStats.totalMembers}</p></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 rounded-3xl text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><DollarSign size={22} /></div>
+                      <div><p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Funds Managed</p><p className="text-2xl font-black">{formatCurrency(globalStats.totalFunds)}</p></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 rounded-3xl text-white shadow-lg shadow-amber-500/20 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Percent size={22} /></div>
+                      <div><p className="text-[10px] font-black uppercase tracking-widest text-amber-200">Roster Fill Rate</p><p className="text-3xl font-black">{globalStats.fillRate}%</p></div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Groups Grid */}
                 {isLoadingGroups ? (
@@ -616,7 +715,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3">
                           <Calendar size={20} className="text-blue-500" />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Active Cycle:</span>
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
                             <select 
                               value={selectedMonth}
                               onChange={(e) => setSelectedMonth(Number(e.target.value))}
@@ -635,7 +734,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3 flex-wrap">
                           <TrendingUp size={20} className="text-amber-500" />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Chit Lifted By:</span>
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
                             <select 
                               value={selectedWinnerId}
                               onChange={async (e) => {
@@ -675,9 +774,19 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="text-xs text-slate-400 font-bold italic">
-                        Note: Lifted members will be charged their updated lift amount from the next monthly cycle.
+                      <div className="flex shrink-0">
+                        <button
+                          onClick={exportToCSV}
+                          className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-emerald-200/50 dark:border-emerald-800/50"
+                        >
+                          <Download size={16} />
+                          Download Ledger
+                        </button>
                       </div>
+                    </div>
+
+                    <div className="text-xs text-slate-400 font-bold italic">
+                      Note: Lifted members will be charged their updated lift amount from the next monthly cycle.
                     </div>
 
                     {/* Stats cards for active month */}
@@ -722,6 +831,52 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
+
+                    {/* --- Dividend Auto-Calculator --- */}
+                    {selectedWinnerId && selectedWinnerId !== 'none' && (() => {
+                      const winner = members.find(m => m.id === selectedWinnerId);
+                      const poolAmount = selectedGroup.totalAmount;
+                      const winnerLifts = winner?.liftedMonths?.length || 0;
+                      // Dividend = Pool - what winner actually bid (assume full pool for now)
+                      // Each remaining member's discount = dividend / total members
+                      const liftedAmount = selectedGroup.liftedContribution || selectedGroup.monthlyContribution;
+                      const dividend = poolAmount - (liftedAmount * selectedGroup.duration);
+                      const perMemberDiscount = dividend > 0 ? (dividend / members.length) : 0;
+                      const normalDue = selectedGroup.monthlyContribution;
+                      const discountedDue = Math.max(normalDue - perMemberDiscount, 0);
+
+                      return dividend > 0 ? (
+                        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
+                            <Sparkles size={20} className="text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">💡 Dividend Calculator — {winner?.name} lifted this month</p>
+                            <p className="text-slate-600 dark:text-slate-400 text-xs mt-1">
+                              Pool: <strong>{formatCurrency(poolAmount)}</strong> · Lifted Amount: <strong>{formatCurrency(liftedAmount * selectedGroup.duration)}</strong> · Dividend: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency(dividend)}</strong>
+                            </p>
+                            <p className="text-slate-600 dark:text-slate-400 text-xs mt-0.5">
+                              Each member saves <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(perMemberDiscount)}</strong> → discounted due: <strong className="text-blue-600 dark:text-blue-400">{formatCurrency(discountedDue)}</strong>
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const updated: {[id: string]: string} = {};
+                              members.forEach(m => {
+                                if (m.id !== selectedWinnerId) {
+                                  updated[m.id] = discountedDue.toFixed(2);
+                                }
+                              });
+                              setCustomAmounts(prev => ({ ...prev, ...updated }));
+                              toast.success(`Dividend applied! Due set to ${formatCurrency(discountedDue)} for all non-winners.`);
+                            }}
+                            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                          >
+                            Apply Dividend
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* Member payments table - Desktop Only */}
                     <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
@@ -861,6 +1016,16 @@ export default function Dashboard() {
                                       >
                                         {isPaid ? "Mark Pending" : "Mark Paid"}
                                       </button>
+
+                                      {!isPaid && (
+                                        <button
+                                          onClick={() => sendWhatsAppReminder(member)}
+                                          title="Send WhatsApp Reminder"
+                                          className="text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 p-1.5 rounded-lg border border-green-200 dark:border-green-800/30 transition-all"
+                                        >
+                                          <MessageCircle size={16} />
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -992,8 +1157,18 @@ export default function Dashboard() {
                                         : "border-emerald-200 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
                                     )}
                                   >
-                                    {isPaid ? "Pending" : "Paid"}
+                                    {isPaid ? "Mark Pending" : "Mark Paid"}
                                   </button>
+                                  
+                                  {!isPaid && (
+                                    <button
+                                      onClick={() => sendWhatsAppReminder(member)}
+                                      title="Send WhatsApp Reminder"
+                                      className="h-10 px-3 rounded-xl border border-green-200 dark:border-green-800/30 text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-all flex items-center justify-center active:scale-[0.96]"
+                                    >
+                                      <MessageCircle size={18} />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

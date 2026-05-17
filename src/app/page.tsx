@@ -81,11 +81,14 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex items-center justify-center"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <Link href="/auth/admin/register" className="h-14 px-10 rounded-full bg-blue-600 text-white font-bold shadow-2xl shadow-blue-500/30 transition-all hover:scale-105 flex items-center gap-3">
-              Start as Agent Control Hub
+              Start as Agent
               <Shield size={20} />
+            </Link>
+            <Link href="/auth/member/login" className="h-14 px-10 rounded-full bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-bold shadow-lg border border-slate-200 dark:border-slate-800 transition-all hover:scale-105 flex items-center gap-3">
+              Member Login
             </Link>
           </motion.div>
         </div>
