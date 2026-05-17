@@ -41,11 +41,11 @@ export default function Dashboard() {
   const [editingGroup, setEditingGroup] = useState<any | null>(null);
   const [groupFormData, setGroupFormData] = useState({
     name: '',
-    totalValue: '100000',
-    membersLimit: '20',
-    durationMonths: '12',
-    monthlyContribution: '5000',
-    liftedContribution: '5000'
+    totalValue: '',
+    membersLimit: '',
+    durationMonths: '',
+    monthlyContribution: '',
+    liftedContribution: ''
   });
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
@@ -117,11 +117,11 @@ export default function Dashboard() {
         // Reset form
         setGroupFormData({
           name: '',
-          totalValue: '100000',
-          membersLimit: '20',
-          durationMonths: '12',
-          monthlyContribution: '5000',
-          liftedContribution: '5000'
+          totalValue: '',
+          membersLimit: '',
+          durationMonths: '',
+          monthlyContribution: '',
+          liftedContribution: ''
         });
         fetchGroups();
       } else {
@@ -388,11 +388,11 @@ export default function Dashboard() {
     setEditingGroup(null);
     setGroupFormData({
       name: '',
-      totalValue: '100000',
-      membersLimit: '20',
-      durationMonths: '12',
-      monthlyContribution: '5000',
-      liftedContribution: '5000'
+      totalValue: '',
+      membersLimit: '',
+      durationMonths: '',
+      monthlyContribution: '',
+      liftedContribution: ''
     });
     setIsGroupModalOpen(true);
   };

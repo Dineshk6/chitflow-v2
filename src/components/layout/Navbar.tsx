@@ -25,6 +25,9 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => { setMounted(true); }, []);
 
   React.useEffect(() => {
     if (session) fetchNotifications();

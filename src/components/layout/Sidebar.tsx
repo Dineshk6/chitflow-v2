@@ -74,11 +74,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const SidebarContent = (
     <div 
       className={cn(
-        "flex flex-col h-screen bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out",
+        "flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out overflow-hidden",
         collapsed ? "w-20" : "w-64"
       )}
     >
-      <div className="flex items-center justify-between p-4 h-16 border-b border-slate-100 dark:border-white/5">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 h-16 border-b border-slate-100 dark:border-white/5 flex-shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
@@ -100,6 +101,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </button>
       </div>
 
+      {/* Nav — scrollable middle section */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
         {items.map((item) => {
           const isActive = pathname.startsWith(item.href);
@@ -107,6 +109,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
                 isActive 
@@ -130,9 +133,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900/20">
+      {/* Bottom — always visible, never scrolled away */}
+      <div className="flex-shrink-0 p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900/20">
         <div className={cn(
-          "flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/5 mb-4 shadow-sm",
+          "flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/5 mb-3 shadow-sm",
           collapsed ? "justify-center" : "px-3"
         )}>
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-[10px] shadow-md shadow-blue-600/20">
@@ -170,7 +174,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:block sticky top-0 h-screen">
+      <aside className="hidden lg:block sticky top-0 h-screen flex-shrink-0">
         {SidebarContent}
       </aside>
 
@@ -190,7 +194,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 lg:hidden shadow-2xl"
+              className="fixed top-0 left-0 h-screen z-50 lg:hidden shadow-2xl"
             >
               {SidebarContent}
             </motion.aside>
