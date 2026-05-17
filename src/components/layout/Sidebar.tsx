@@ -63,7 +63,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     router.push('/');
   };
 
-  const userName = session?.user?.name || (role === 'admin' ? 'Admin User' : 'Member User');
+  const userName = session?.user?.name || (role === 'admin' ? 'Agent User' : 'Member User');
   const userInitials = userName
     .split(' ')
     .map(n => n[0])
@@ -146,7 +146,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex-1 overflow-hidden">
               <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tight">{userName}</p>
               <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate uppercase tracking-widest opacity-80">
-                {role === 'admin' ? 'Admin' : 'Member'}
+                {role === 'admin' ? 'Agent' : 'Member'}
               </p>
             </div>
           )}
@@ -194,7 +194,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 h-screen z-50 lg:hidden shadow-2xl"
+              className="fixed inset-y-0 left-0 h-[100dvh] z-50 lg:hidden shadow-2xl"
             >
               {SidebarContent}
             </motion.aside>

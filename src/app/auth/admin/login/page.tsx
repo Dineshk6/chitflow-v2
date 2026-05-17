@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 
-export default function AdminLoginPage() {
+export default function AgentLoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -48,11 +48,11 @@ export default function AdminLoginPage() {
       });
 
       if (result?.error) {
-        setErrors({ general: result.error === "CredentialsSignin" ? 'Invalid admin credentials' : result.error });
+        setErrors({ general: result.error === "CredentialsSignin" ? 'Invalid agent credentials' : result.error });
         toast.error("Something went wrong");
       } else {
         localStorage.setItem('userRole', 'admin');
-        toast.success("Welcome back, Admin!");
+        toast.success("Welcome back, Agent!");
         router.push('/admin/dashboard');
       }
     } catch (error) {
@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-2xl shadow-xl">
               C
             </div>
-            <span className="font-bold text-2xl tracking-tight">ChitFlow <span className="text-blue-500">Admin</span></span>
+            <span className="font-bold text-2xl tracking-tight">ChitFlow <span className="text-blue-500">Agent</span></span>
           </div>
           
           <h2 className="text-5xl font-black leading-tight mb-8">
@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
             Modern Chit Funds.
           </h2>
           <p className="text-slate-400 text-lg max-w-md leading-relaxed">
-            Securely manage members, track collections, and oversee auctions from your centralized administrative dashboard.
+            Securely manage members, track collections, and oversee auctions from your centralized agent dashboard.
           </p>
         </div>
 
@@ -100,10 +100,10 @@ export default function AdminLoginPage() {
           <div>
             <div className="md:hidden flex items-center gap-2 mb-10">
               <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-lg">C</div>
-              <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">ChitFlow Admin</span>
+              <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">ChitFlow Agent</span>
             </div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Admin Portal</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Log in with your administrator credentials.</p>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Agent Portal</h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Log in with your agent credentials.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
@@ -119,7 +119,7 @@ export default function AdminLoginPage() {
                       setIdentifier(e.target.value);
                       if (errors.identifier) setErrors({...errors, identifier: ''});
                     }}
-                    placeholder="admin@chitflow.com or 9876543210" 
+                    placeholder="agent@chitflow.com or 9876543210" 
                     className={cn(
                       "w-full h-14 pl-12 pr-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border text-sm focus:outline-none transition-all",
                       errors.identifier 
@@ -180,7 +180,7 @@ export default function AdminLoginPage() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  Access Admin Dashboard
+                  Access Agent Dashboard
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
@@ -189,7 +189,7 @@ export default function AdminLoginPage() {
 
           <div className="space-y-4">
             <p className="text-xs text-slate-500 text-center">
-              Don't have an admin account? <Link href="/auth/admin/register" className="text-blue-600 font-bold hover:underline">Register as Admin</Link>
+              Don't have an agent account? <Link href="/auth/admin/register" className="text-blue-600 font-bold hover:underline">Register as Agent</Link>
             </p>
           </div>
         </div>

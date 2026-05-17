@@ -39,7 +39,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <Link href="/auth/admin/login" className="h-11 px-6 rounded-full bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 hover:opacity-90">
               <Shield size={16} />
-              Admin Portal Login
+              Agent Portal Login
             </Link>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function LandingPage() {
             className="flex items-center justify-center"
           >
             <Link href="/auth/admin/register" className="h-14 px-10 rounded-full bg-blue-600 text-white font-bold shadow-2xl shadow-blue-500/30 transition-all hover:scale-105 flex items-center gap-3">
-              Start as Admin Control Hub
+              Start as Agent Control Hub
               <Shield size={20} />
             </Link>
           </motion.div>
@@ -155,7 +155,7 @@ export default function LandingPage() {
           
           <div className="flex items-center justify-center relative z-10">
             <Link href="/auth/admin/register" className="h-16 px-12 rounded-full bg-white text-blue-600 font-black shadow-xl hover:scale-105 transition-all flex items-center gap-3">
-              Register as Admin Agent
+              Register as Agent
               <Shield size={20} />
             </Link>
           </div>

@@ -32,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-6">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="text-slate-500">Your account does not have Admin permissions.</p>
+          <p className="text-slate-500">Your account does not have Agent permissions.</p>
           <button 
             onClick={() => router.push('/auth/admin/login')}
             className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold"
