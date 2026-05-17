@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [memberToDelete, setMemberToDelete] = useState<any | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('ALL');
 
   // Payment states
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
@@ -183,8 +184,8 @@ export default function Dashboard() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberFormData.name || !memberFormData.phone) {
-      toast.error("Name and Phone number are required");
+    if (!memberFormData.name || !memberFormData.phone || memberFormData.phone.length !== 10) {
+      toast.error("Name and a valid 10-digit Phone number are required");
       return;
     }
 
@@ -344,10 +345,20 @@ export default function Dashboard() {
   }, [selectedMonth, members, selectedGroup]);
 
   // Computations
-  const filteredMembers = members.filter(m => 
-    m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
-    m.phone.includes(memberSearchQuery)
-  );
+  const filteredMembers = members.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.phone.includes(memberSearchQuery);
+    if (!matchesSearch) return false;
+    
+    if (paymentFilter === 'ALL') return true;
+    
+    const payment = m.payments?.find((p: any) => p.month === selectedMonth);
+    const isPaid = payment?.status === 'PAID';
+    
+    if (paymentFilter === 'PAID' && isPaid) return true;
+    if (paymentFilter === 'PENDING' && !isPaid) return true;
+    
+    return false;
+  });
 
   const stats = (() => {
     let paidCount = 0;
@@ -999,15 +1010,26 @@ export default function Dashboard() {
                     
                     {/* Add member button and search filter */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                      <div className="relative w-full max-w-md">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
-                          placeholder="Search enrolled members..." 
-                          value={memberSearchQuery}
-                          onChange={(e) => setMemberSearchQuery(e.target.value)}
-                          className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-xs shadow-sm"
-                        />
+                      <div className="relative w-full max-w-md flex items-center gap-3">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input 
+                            type="text" 
+                            placeholder="Search enrolled members..." 
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-xs shadow-sm"
+                          />
+                        </div>
+                        <select
+                          value={paymentFilter}
+                          onChange={(e) => setPaymentFilter(e.target.value)}
+                          className="h-11 px-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none"
+                        >
+                          <option value="ALL">All Status</option>
+                          <option value="PAID">Paid Only</option>
+                          <option value="PENDING">Pending Only</option>
+                        </select>
                       </div>
 
                       <button
@@ -1232,10 +1254,15 @@ export default function Dashboard() {
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Phone Number *</label>
                   <input 
-                    type="text" 
+                    type="tel" 
                     value={memberFormData.phone}
-                    onChange={(e) => setMemberFormData({...memberFormData, phone: e.target.value})}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setMemberFormData({...memberFormData, phone: val});
+                    }}
                     placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    pattern="[0-9]{10}"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     required
                   />

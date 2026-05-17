@@ -56,6 +56,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const items = role === 'admin' ? adminItems : memberItems;
 
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -153,19 +154,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
         
         <button 
-          onClick={handleLogout}
+          onClick={() => setShowLogoutModal(true)}
           disabled={isLoggingOut}
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-all font-medium",
+            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 transition-all font-bold group border border-transparent hover:border-red-600 dark:hover:border-red-500",
             collapsed ? "justify-center" : ""
           )}
         >
           {isLoggingOut ? (
             <Loader2 size={20} className="animate-spin" />
           ) : (
-            <LogOut size={20} className="min-w-[20px]" />
+            <LogOut size={20} className="min-w-[20px] transition-transform group-hover:-translate-x-1" />
           )}
-          {!collapsed && <span className="text-sm">Logout</span>}
+          {!collapsed && <span className="text-sm">Logout safely</span>}
         </button>
       </div>
     </div>
@@ -201,6 +202,59 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </>
         )}
       </AnimatePresence>
+      <LogoutModal 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={handleLogout} 
+        isLoggingOut={isLoggingOut} 
+      />
     </>
   );
 }
+
+const LogoutModal = ({ isOpen, onClose, onConfirm, isLoggingOut }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; isLoggingOut: boolean; }) => {
+  if (!isOpen) return null;
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800 text-center"
+        >
+          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-500 mx-auto mb-4">
+            <LogOut size={32} />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Ready to leave?</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+            You are about to securely log out of your session. You'll need your credentials to access the dashboard again.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isLoggingOut}
+              className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isLoggingOut}
+              className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-500/25 transition-all flex items-center justify-center gap-2"
+            >
+              {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Yes, Log Out'}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};

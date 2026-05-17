@@ -3,6 +3,7 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import CalculatorWidget from '../admin/CalculatorWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -64,6 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </AnimatePresence>
         </main>
       </div>
+      <CalculatorWidget />
     </div>
   );
 }

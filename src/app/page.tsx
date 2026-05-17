@@ -64,8 +64,8 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white leading-tight mb-8"
           >
-            Manage Your Chit Fund <br />
-            <span className="text-transparent bg-clip-text gradient-blue">With Confidence</span>
+            Run Your Chit Fund <br />
+            <span className="text-transparent bg-clip-text gradient-blue">Smarter & Faster</span>
           </motion.h1>
           
           <motion.p
@@ -74,8 +74,7 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-xl text-slate-500 dark:text-slate-400 max-w-3xl mx-auto mb-12 leading-relaxed"
           >
-            Modern ROSCA management platform designed for agents and customers. 
-            Automate collections, track winners, and grow your community with ease.
+            The ultimate software for agents to manage members, automate collections, and calculate dividends with zero manual errors. Scale your business effortlessly.
           </motion.p>
           
           <motion.div
@@ -180,27 +179,27 @@ export default function LandingPage() {
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white mb-6">Product</h4>
             <ul className="space-y-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Features</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Dashboard</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Mobile App</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Security</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Features</Link></li>
+              <li><Link href="/auth/admin/login" className="hover:text-blue-600 transition-colors">Dashboard</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Mobile App</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Security</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white mb-6">Company</h4>
             <ul className="space-y-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">About Us</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Careers</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Blog</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Contact</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">About Us</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Careers</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Blog</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition-colors">Contact</Link></li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-slate-100 dark:border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs font-bold text-slate-400">© 2024 ChitFlow Technologies Pvt Ltd. All rights reserved.</p>
           <div className="flex gap-8 text-xs font-bold text-slate-400">
-            <Link href="#" className="hover:text-slate-600">Privacy Policy</Link>
-            <Link href="#" className="hover:text-slate-600">Terms of Service</Link>
+            <Link href="/" className="hover:text-slate-600">Privacy Policy</Link>
+            <Link href="/" className="hover:text-slate-600">Terms of Service</Link>
           </div>
         </div>
       </footer>
