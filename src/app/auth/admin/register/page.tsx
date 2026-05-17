@@ -66,11 +66,17 @@ export default function AdminRegisterPage() {
       } else {
         localStorage.setItem('userRole', 'admin');
         toast.success("Admin account created successfully!");
-        await signIn('credentials', {
+        const result = await signIn('credentials', {
           identifier: formData.email,
           password: formData.password,
-          callbackUrl: '/admin/dashboard'
+          redirect: false,
         });
+        if (result?.ok) {
+          router.push('/admin/dashboard');
+        } else {
+          toast.success("Account created! Please log in.");
+          router.push('/auth/admin/login');
+        }
       }
     } catch (error) {
       setErrors({ general: 'Something went wrong' });

@@ -188,11 +188,6 @@ export default function AdminLoginPage() {
           </form>
 
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800">
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium leading-relaxed text-center">
-                Are you a member? <Link href="/auth/member/login" className="font-bold underline">Go to Member Portal</Link>
-              </p>
-            </div>
             <p className="text-xs text-slate-500 text-center">
               Don't have an admin account? <Link href="/auth/admin/register" className="text-blue-600 font-bold hover:underline">Register as Admin</Link>
             </p>
