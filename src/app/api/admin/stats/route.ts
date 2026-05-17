@@ -11,23 +11,36 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get basic counts
-    const totalGroups = await prisma.chitGroup.count();
-    const activeGroups = await prisma.chitGroup.count({ where: { status: "ACTIVE" } });
-    const totalMembers = await prisma.user.count({ where: { role: "MEMBER" } });
-    
-    // Calculate total revenue from successful payments
+    const adminId = session.user.id;
+
+    // Get counts filtered by this admin's groups only
+    const totalGroups = await prisma.chitGroup.count({ where: { adminId } as any });
+    const activeGroups = await prisma.chitGroup.count({ where: { adminId, status: "ACTIVE" } as any });
+
+    // Get all group IDs belonging to this admin
+    const adminGroups = await prisma.chitGroup.findMany({
+      where: { adminId } as any,
+      select: { id: true }
+    });
+    const adminGroupIds = adminGroups.map((g: any) => g.id);
+
+    // Count members only in this admin's groups
+    const totalMembers = await prisma.groupMember.count({
+      where: { groupId: { in: adminGroupIds } }
+    });
+
+    // Calculate total revenue from this admin's groups only
     const payments = await prisma.payment.aggregate({
-      _sum: {
-        amount: true
-      },
+      _sum: { amount: true },
       where: {
-        status: "PAID"
+        status: "PAID",
+        groupId: { in: adminGroupIds }
       }
     });
 
-    // Get recent activities (last 5)
+    // Get recent groups for this admin only (last 5)
     const recentGroups = await prisma.chitGroup.findMany({
+      where: { adminId } as any,
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, createdAt: true, totalAmount: true }
@@ -39,7 +52,6 @@ export async function GET() {
       totalMembers,
       totalRevenue: payments._sum.amount || 0,
       recentGroups,
-      // For demo, we'll calculate growth based on static baseline or just return current
       growth: {
         revenue: "+12.5%",
         members: "+8.2%"

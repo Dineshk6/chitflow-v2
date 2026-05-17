@@ -3,10 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// GET all groups
+// GET groups - only return groups belonging to the logged-in admin
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const groups = await prisma.chitGroup.findMany({
+      where: { adminId: session.user.id } as any,
       include: {
         _count: { select: { members: true } }
       },
