@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum GroupStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  email         String?   @unique
+  phone         String?   @unique
+  mobile        String?   
+  name          String
+  password      String
+  role          UserRole  @default(MEMBER)
+  kycStatus     String    @default("pending")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  adminGroups   ChitGroup[]    @relation("AdminGroups")
+  memberships   GroupMember[]
+  payments      Payment[]
+  winnings      Auction[]      @relation("Winner")
+  bids          Bid[]
+  notifications Notification[]
+}
+
+model ChitGroup {
+  id                  String        @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  totalAmount         Float
+  monthlyContribution Float
+  liftedContribution  Float?
+  duration            Int
+  membersLimit        Int           @default(20)
+  currentMonth        Int           @default(1)
+  startDate           DateTime?
+  status              GroupStatus   @default(UPCOMING)
+  adminId             String        @db.ObjectId
+  admin               User          @relation("AdminGroups", fields: [adminId], references: [id])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  members             GroupMember[]
+  payments            Payment[]
+  auctions            Auction[]
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+model GroupMember {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String       @db.ObjectId
+  groupId   String       @db.ObjectId
+  status    MemberStatus @default(PENDING)
+  user      User         @relation(fields: [userId], references: [id])
+  group     ChitGroup    @relation(fields: [groupId], references: [id])
+  joinedAt  DateTime     @default(now())
+
+  @@unique([userId, groupId])
+}
+
+model Payment {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  amount      Float
+  month       Int
+  status      PaymentStatus @default(PENDING)
+  userId      String        @db.ObjectId
+  groupId     String        @db.ObjectId
+  user        User          @relation(fields: [userId], references: [id])
+  group       ChitGroup     @relation(fields: [groupId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum AuctionStatus {
+  UPCOMING
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+model Auction {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  month       Int
+  winningBid  Float?
+  dividend    Float?
+  status      AuctionStatus @default(UPCOMING)
+  prizeValue  Float
+  winnerId    String?       @db.ObjectId
+  groupId     String        @db.ObjectId
+  scheduledAt DateTime?
+  winner      User?         @relation("Winner", fields: [winnerId], references: [id])
+  group       ChitGroup     @relation(fields: [groupId], references: [id])
+  bids        Bid[]
+  createdAt   DateTime      @default(now())
+}
+
+model Bid {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount    Float
+  userId    String   @db.ObjectId
+  auctionId String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  auction   Auction  @relation(fields: [auctionId], references: [id])
+  createdAt DateTime @default(now())
+}
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  title     String
+  message   String
+  type      String   @default("info") // info, success, warning, auction
+  read      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}

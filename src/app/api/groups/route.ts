@@ -1,0 +1,192 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
+// GET all groups
+export async function GET() {
+  try {
+    const groups = await prisma.chitGroup.findMany({
+      include: {
+        _count: { select: { members: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return NextResponse.json(groups);
+  } catch (error) {
+    console.error("Error fetching groups:", error);
+    return NextResponse.json({ error: "Failed to fetch groups" }, { status: 500 });
+  }
+}
+
+// POST create a new group
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Double check the database for the LATEST role (bypasses session caching)
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      console.log("Creation blocked: User is not an ADMIN in database.", { email: session.user.email, role: dbUser?.role });
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    console.log("Creating group with body:", body);
+
+    const { 
+      name, 
+      totalValue,
+      membersLimit, 
+      durationMonths,
+      monthlyContribution,
+      liftedContribution,
+      startDate,
+    } = body;
+
+    // Validation
+    if (!name || !totalValue || !membersLimit || !durationMonths || !monthlyContribution) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    }
+
+    const totalAmountNum = parseFloat(totalValue);
+    const membersLimitNum = parseInt(membersLimit);
+    const durationNum = parseInt(durationMonths);
+    const monthlyContributionNum = parseFloat(monthlyContribution);
+    const liftedContributionNum = liftedContribution ? parseFloat(liftedContribution) : null;
+
+    if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
+      return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
+    }
+
+    const group = await prisma.chitGroup.create({
+      data: {
+        name,
+        totalAmount: totalAmountNum,
+        membersLimit: membersLimitNum,
+        duration: durationNum,
+        monthlyContribution: monthlyContributionNum,
+        liftedContribution: liftedContributionNum,
+        startDate: startDate ? new Date(startDate) : null,
+        status: "UPCOMING",
+        adminId: session.user.id,
+      } as any
+    });
+
+    console.log("Group created successfully:", group.id);
+    return NextResponse.json(group, { status: 201 });
+  } catch (error: any) {
+    console.error("Error creating group:", error);
+    return NextResponse.json({ error: error.message || "Failed to create group" }, { status: 500 });
+  }
+}
+
+// PUT update an existing group
+export async function PUT(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { 
+      id,
+      name, 
+      totalValue,
+      membersLimit, 
+      durationMonths,
+      monthlyContribution,
+      liftedContribution,
+    } = body;
+
+    if (!id || !name || !totalValue || !membersLimit || !durationMonths || !monthlyContribution) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    }
+
+    const totalAmountNum = parseFloat(totalValue);
+    const membersLimitNum = parseInt(membersLimit);
+    const durationNum = parseInt(durationMonths);
+    const monthlyContributionNum = parseFloat(monthlyContribution);
+    const liftedContributionNum = liftedContribution ? parseFloat(liftedContribution) : null;
+
+    if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
+      return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
+    }
+
+    const group = await prisma.chitGroup.update({
+      where: { id },
+      data: {
+        name,
+        totalAmount: totalAmountNum,
+        membersLimit: membersLimitNum,
+        duration: durationNum,
+        monthlyContribution: monthlyContributionNum,
+        liftedContribution: liftedContributionNum,
+      } as any
+    });
+
+    console.log("Group updated successfully:", group.id);
+    return NextResponse.json(group);
+  } catch (error: any) {
+    console.error("Error updating group:", error);
+    return NextResponse.json({ error: error.message || "Failed to update group" }, { status: 500 });
+  }
+}
+
+// DELETE a group with cascade deletes
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Group ID is required" }, { status: 400 });
+    }
+
+    // Cascade deletes in MongoDB: memberships, payments, auctions, then group
+    await prisma.groupMember.deleteMany({ where: { groupId: id } });
+    await prisma.payment.deleteMany({ where: { groupId: id } });
+    await prisma.auction.deleteMany({ where: { groupId: id } });
+    await prisma.chitGroup.delete({ where: { id } });
+
+    console.log("Group deleted successfully:", id);
+    return NextResponse.json({ message: "Group deleted successfully!" });
+  } catch (error: any) {
+    console.error("Error deleting group:", error);
+    return NextResponse.json({ error: error.message || "Failed to delete group" }, { status: 500 });
+  }
+}
