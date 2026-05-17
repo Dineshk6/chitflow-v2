@@ -257,6 +257,14 @@ export default function Dashboard() {
   const handleTogglePaymentStatus = async (userId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'PAID' ? 'PENDING' : 'PAID';
     const amountVal = parseFloat(customAmounts[userId]) || selectedGroup.monthlyContribution;
+    const currentMember = members.find(m => m.id === userId);
+
+    // If marked as PAID, automatically open WhatsApp confirmation message
+    if (nextStatus === 'PAID' && currentMember) {
+      const text = `Hi ${currentMember.name}, we have received your payment of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}". Thank you!`;
+      const url = `https://wa.me/91${currentMember.phone}?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    }
 
     // Optimistic UI updates
     setMembers(prev => prev.map(m => {
@@ -379,27 +387,6 @@ export default function Dashboard() {
     const text = `Hi ${member.name}, your chit contribution of Rs.${dueAmount} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
     const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
-  };
-
-  const sendBulkWhatsAppReminder = () => {
-    const pendingMembers = members.filter(m => {
-      const p = m.payments?.find((p: any) => p.month === selectedMonth);
-      return p?.status !== 'PAID';
-    });
-
-    if (pendingMembers.length === 0) {
-      toast.success("All members have paid for this month!");
-      return;
-    }
-
-    let messageList = `Pending Reminders for ${selectedGroup?.name} (Month ${selectedMonth}):\n\n`;
-    pendingMembers.forEach(m => {
-      const due = parseFloat(customAmounts[m.id]) || selectedGroup?.monthlyContribution;
-      messageList += `- ${m.name} (${m.phone}): Rs.${due}\n`;
-    });
-    
-    navigator.clipboard.writeText(messageList);
-    toast.success(`${pendingMembers.length} pending records copied to clipboard to paste into WhatsApp Broadcast!`);
   };
 
   const downloadReceipt = (member: any) => {
@@ -834,13 +821,7 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex shrink-0 gap-2">
-                        <button
-                          onClick={sendBulkWhatsAppReminder}
-                          className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-green-200/50 dark:border-green-800/50"
-                        >
-                          <Send size={16} />
-                          Bulk Broadcast
-                        </button>
+
                         <button
                           onClick={exportToCSV}
                           className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-emerald-200/50 dark:border-emerald-800/50"
