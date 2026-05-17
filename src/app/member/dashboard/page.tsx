@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
-  CheckCircle2, Clock, Trophy, Layers, DollarSign,
+  CheckCircle2, Clock, Trophy, Layers, IndianRupee,
   LogOut, Phone, ChevronDown, ChevronUp, Loader2,
   TrendingUp, Shield, User
 } from 'lucide-react';
@@ -122,7 +122,7 @@ export default function MemberDashboard() {
           >
             {[
               { label: 'Groups', value: groupData.length, icon: <Layers size={18} />, color: 'blue' },
-              { label: 'Total Paid', value: formatCurrency(totalPaid), icon: <DollarSign size={18} />, color: 'emerald', small: true },
+              { label: 'Total Paid', value: formatCurrency(totalPaid), icon: <IndianRupee size={18} />, color: 'emerald', small: true },
               { label: 'Chit Lifts', value: totalWins, icon: <Trophy size={18} />, color: 'amber' },
               { label: 'Pending Months', value: totalPending, icon: <Clock size={18} />, color: 'rose' },
             ].map((stat) => (

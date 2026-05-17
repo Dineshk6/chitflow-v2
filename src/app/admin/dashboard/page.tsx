@@ -11,7 +11,7 @@ import {
   Clock, 
   Trash2, 
   Edit3, 
-  DollarSign, 
+  IndianRupee, 
   Calendar,
   Loader2,
   Phone,
@@ -532,7 +532,7 @@ export default function Dashboard() {
                       <div><p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Total Members</p><p className="text-3xl font-black">{globalStats.totalMembers}</p></div>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 rounded-3xl text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><DollarSign size={22} /></div>
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><IndianRupee size={22} /></div>
                       <div><p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Funds Managed</p><p className="text-xl sm:text-2xl font-black truncate">{formatCurrency(globalStats.totalFunds)}</p></div>
                     </div>
                     <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 rounded-3xl text-white shadow-lg shadow-amber-500/20 flex items-center gap-4">
@@ -823,7 +823,7 @@ export default function Dashboard() {
 
                       <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
-                          <DollarSign size={22} />
+                          <IndianRupee size={22} />
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Collected (Month {selectedMonth})</p>
