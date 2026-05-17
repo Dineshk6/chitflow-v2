@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (role === "ADMIN" && inviteCode !== "CHITFLOW_ADMIN_2026") {
+    if (role === "ADMIN" && inviteCode !== "dineshchits") {
       return NextResponse.json(
         { error: "Invalid Admin Access Code. You are not authorized." },
         { status: 403 }
