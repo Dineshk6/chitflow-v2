@@ -19,7 +19,8 @@ export default function AgentRegisterPage() {
     lastName: '',
     businessName: '',
     email: '',
-    password: ''
+    password: '',
+    inviteCode: ''
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
@@ -41,6 +42,7 @@ export default function AgentRegisterPage() {
     }
 
     if (!formData.password) newErrors.password = 'Password required';
+    if (!formData.inviteCode) newErrors.inviteCode = 'Access Code required';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -56,15 +58,16 @@ export default function AgentRegisterPage() {
           email: formData.email.includes('@') ? formData.email : undefined,
           phone: !formData.email.includes('@') ? formData.email : undefined,
           password: formData.password,
-          role: 'ADMIN'
+          role: 'ADMIN',
+          inviteCode: formData.inviteCode
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setErrors({ general: 'Something went wrong' });
-        toast.error("Something went wrong");
+        setErrors({ general: data.error || 'Something went wrong' });
+        toast.error(data.error || "Something went wrong");
       } else {
         localStorage.setItem('userRole', 'admin');
         toast.success("Agent account created successfully!");
@@ -234,6 +237,31 @@ export default function AgentRegisterPage() {
                   />
                 </div>
                 {errors.password && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] font-bold text-red-400 uppercase tracking-wider ml-2">{errors.password}</motion.p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Admin Access Code</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <ShieldCheck className="text-slate-500 group-focus-within:text-amber-400 transition-colors" size={16} />
+                  </div>
+                  <input 
+                    type="password" 
+                    value={formData.inviteCode}
+                    onChange={(e) => {
+                      setFormData({...formData, inviteCode: e.target.value});
+                      if (errors.inviteCode) setErrors({...errors, inviteCode: ''});
+                    }}
+                    placeholder="Enter Secret Code" 
+                    className={cn(
+                      "w-full h-12 pl-11 pr-4 rounded-2xl bg-amber-500/5 border text-sm text-amber-200 focus:outline-none transition-all placeholder:text-slate-600",
+                      errors.inviteCode 
+                        ? "border-red-500 focus:ring-4 focus:ring-red-500/10 bg-red-500/5" 
+                        : "border-amber-500/30 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 hover:border-amber-500/50"
+                    )}
+                  />
+                </div>
+                {errors.inviteCode && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] font-bold text-red-400 uppercase tracking-wider ml-2">{errors.inviteCode}</motion.p>}
               </div>
             </div>
 

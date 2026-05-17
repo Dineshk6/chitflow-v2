@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    let { name, email, phone, password, role } = body;
+    let { name, email, phone, password, role, inviteCode } = body;
 
     // Normalize email and phone
     email = email?.trim().toLowerCase() || null;
@@ -15,6 +15,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
+      );
+    }
+
+    if (role === "ADMIN" && inviteCode !== "CHITFLOW_ADMIN_2026") {
+      return NextResponse.json(
+        { error: "Invalid Admin Access Code. You are not authorized." },
+        { status: 403 }
       );
     }
 
