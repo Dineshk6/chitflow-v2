@@ -2,49 +2,45 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePathname } from 'next/navigation';
 
 interface PageWrapperProps {
   children: React.ReactNode;
   loadingContent?: React.ReactNode;
+  delay?: number;
 }
 
-export default function PageWrapper({ children, loadingContent }: PageWrapperProps) {
-  const pathname = usePathname();
-  const [isLoading, setIsLoading] = React.useState(!!loadingContent);
+export default function PageWrapper({ 
+  children, 
+  loadingContent, 
+  delay = 800 
+}: PageWrapperProps) {
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!loadingContent) {
+    const timer = setTimeout(() => {
       setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    const timer = setTimeout(() => setIsLoading(false), 120);
+    }, delay);
     return () => clearTimeout(timer);
-  }, [pathname, loadingContent]);
-
-  if (!loadingContent) {
-    return <>{children}</>;
-  }
+  }, [delay]);
 
   return (
     <AnimatePresence mode="wait">
       {isLoading ? (
         <motion.div
-          key={`loading-${pathname}`}
+          key="loading"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.2 }}
         >
           {loadingContent}
         </motion.div>
       ) : (
         <motion.div
-          key={`content-${pathname}`}
-          initial={{ opacity: 0, y: 6 }}
+          key="content"
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         >
           {children}
         </motion.div>
