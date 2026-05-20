@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   CheckCircle2, Clock, Trophy, Layers, IndianRupee,
   LogOut, Phone, ChevronDown, ChevronUp, Loader2,
-  TrendingUp, Shield, User, Bell, Send, MessageCircle, Inbox
+  TrendingUp, Shield, User, Bell, Send, MessageCircle, Inbox, X
 } from 'lucide-react';
 import { formatCurrency, cn, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -231,15 +231,25 @@ export default function MemberDashboard() {
                             </span>
                           )}
                         </div>
-                        {notifications.length > 0 && messageTab === 'inbox' && (
+                        <div className="flex items-center gap-2">
+                          {notifications.length > 0 && messageTab === 'inbox' && (
+                            <button
+                              type="button"
+                              onClick={clearAllMessages}
+                              className="text-[10px] font-bold text-red-400 hover:underline"
+                            >
+                              Clear all
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={clearAllMessages}
-                            className="text-[10px] font-bold text-red-400 hover:underline"
+                            onClick={() => setIsNotifOpen(false)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                            aria-label="Close messages"
                           >
-                            Clear all
+                            <X size={15} />
                           </button>
-                        )}
+                        </div>
                       </div>
                       <div className="flex gap-1 mt-3 p-0.5 bg-black/20 rounded-lg">
                         <button

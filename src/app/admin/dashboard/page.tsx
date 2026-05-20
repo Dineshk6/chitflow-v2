@@ -30,7 +30,8 @@ import {
   Percent,
   Sparkles,
   Send,
-  Trophy
+  Trophy,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -1428,11 +1429,20 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-2xl border border-slate-200 dark:border-slate-800"
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl border border-slate-200"
             >
-              <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none mb-6">
-                Add Group Member
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-900 leading-none">
+                  Add Group Member
+                </h3>
+                <button 
+                  type="button"
+                  onClick={() => setIsMemberModalOpen(false)}
+                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
               <form onSubmit={handleAddMember} className="space-y-5">
                 <div>
@@ -1442,7 +1452,7 @@ export default function Dashboard() {
                     value={memberFormData.name}
                     onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     required
                   />
                 </div>
@@ -1459,7 +1469,7 @@ export default function Dashboard() {
                     placeholder="e.g. 9876543210"
                     maxLength={10}
                     pattern="[0-9]{10}"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     required
                   />
                 </div>
@@ -1468,7 +1478,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setIsMemberModalOpen(false)}
-                    className="flex-1 h-12 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-wider"
+                    className="flex-1 h-12 rounded-2xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
                   >
                     Cancel
                   </button>
@@ -1502,20 +1512,20 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800"
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 mb-4">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Delete Chit Group</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                Are you sure you want to delete <span className="font-bold text-slate-800 dark:text-slate-200">{groupToDelete.name}</span>? This action is permanent and will delete all member relationships and payments in this group.
+              <h3 className="text-lg font-bold text-slate-900">Delete Chit Group</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Are you sure you want to delete <span className="font-bold text-slate-800">{groupToDelete.name}</span>? This action is permanent and will delete all member relationships and payments in this group.
               </p>
 
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setGroupToDelete(null)}
-                  className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-wider"
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
@@ -1547,20 +1557,20 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800"
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 mb-4">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Remove Member</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                Are you sure you want to remove <span className="font-bold text-slate-800 dark:text-slate-200">{memberToDelete.name}</span> from the group <span className="font-bold text-slate-800 dark:text-slate-200">{selectedGroup.name}</span>? This will wipe their payment history for this group.
+              <h3 className="text-lg font-bold text-slate-900">Remove Member</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Are you sure you want to remove <span className="font-bold text-slate-800">{memberToDelete.name}</span> from the group <span className="font-bold text-slate-800">{selectedGroup.name}</span>? This will wipe their payment history for this group.
               </p>
 
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setMemberToDelete(null)}
-                  className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-wider"
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
@@ -1593,21 +1603,29 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800"
+              className="relative w-full max-w-md bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
             >
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 shadow-sm border border-amber-100 dark:border-amber-900/50">
-                <Trophy size={24} />
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-sm border border-amber-100">
+                  <Trophy size={24} />
+                </div>
+                <button 
+                  onClick={() => setWinnerMessageModal(null)}
+                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+              <h3 className="text-xl font-black text-slate-900 leading-tight">
                 Winner Updated!
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
-                Do you want to send a congratulatory WhatsApp message to <span className="font-bold text-slate-900 dark:text-white">{winnerMessageModal.winner.name}</span>?
+              <p className="text-sm text-slate-500 mt-2 font-medium">
+                Do you want to send a congratulatory WhatsApp message to <span className="font-bold text-slate-900">{winnerMessageModal.winner.name}</span>?
               </p>
 
-              <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+              <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
                 <textarea
-                  className="w-full text-sm text-slate-700 dark:text-slate-300 bg-transparent outline-none resize-none min-h-[100px]"
+                  className="w-full text-sm text-slate-700 bg-transparent outline-none resize-none min-h-[100px]"
                   value={winnerMessageModal.text}
                   onChange={(e) => setWinnerMessageModal({ ...winnerMessageModal, text: e.target.value })}
                 />
@@ -1617,7 +1635,7 @@ export default function Dashboard() {
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setWinnerMessageModal(null)}
-                  className="flex-1 h-12 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-wider"
+                  className="flex-1 h-12 rounded-2xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
