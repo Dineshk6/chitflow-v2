@@ -167,4 +167,12 @@
   .dark * {
     scrollbar-color: theme('colors.slate.700') transparent;
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

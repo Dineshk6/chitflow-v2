@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const adminItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
+  { name: 'Messages', icon: Bell, href: '/admin/notifications' },
 ];
 
 const memberItems = [

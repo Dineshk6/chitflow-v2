@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2, Clock, Trophy, Layers, IndianRupee,
   LogOut, Phone, ChevronDown, ChevronUp, Loader2,
-  TrendingUp, Shield, User
+  TrendingUp, Shield, User, Bell, Send, MessageCircle, Inbox
 } from 'lucide-react';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function MemberDashboard() {
@@ -17,6 +17,13 @@ export default function MemberDashboard() {
   const [groupData, setGroupData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [messageTab, setMessageTab] = useState<'inbox' | 'send'>('inbox');
+  const [memberMessage, setMemberMessage] = useState('');
+  const [messageGroupId, setMessageGroupId] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const notifContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('memberSession');
@@ -24,7 +31,116 @@ export default function MemberDashboard() {
     const parsed = JSON.parse(stored);
     setSession(parsed);
     fetchDashboard(parsed.memberId);
+    fetchNotifications(parsed.memberId);
   }, []);
+
+  useEffect(() => {
+    if (!isNotifOpen) return;
+
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (notifContainerRef.current && !notifContainerRef.current.contains(target)) {
+        setIsNotifOpen(false);
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsNotifOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isNotifOpen]);
+
+  const fetchNotifications = async (memberId: string) => {
+    try {
+      const res = await fetch(`/api/member/notifications?memberId=${memberId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      /* non-blocking */
+    }
+  };
+
+  const markNotifRead = async (id: string, memberId?: string) => {
+    const uid = memberId ?? session?.memberId;
+    if (!uid) return;
+    try {
+      await fetch('/api/member/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: uid, id }),
+      });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const clearAllMessages = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const memberId = session?.memberId;
+    if (!memberId || notifications.length === 0) return;
+    setNotifications([]);
+    try {
+      const res = await fetch('/api/member/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId, clearAll: true }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || 'Could not clear messages');
+        fetchNotifications(memberId);
+      } else {
+        toast.success('All messages cleared');
+      }
+    } catch {
+      toast.error('Could not clear messages');
+      fetchNotifications(memberId);
+    }
+  };
+
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
+
+  const sendMessageToAgent = async () => {
+    const memberId = session?.memberId;
+    if (!memberId || !memberMessage.trim()) {
+      toast.error('Type a message first');
+      return;
+    }
+    setIsSendingMessage(true);
+    try {
+      const res = await fetch('/api/member/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId,
+          message: memberMessage.trim(),
+          ...(messageGroupId ? { groupId: messageGroupId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast.success('Message sent to your agent');
+      setMemberMessage('');
+      setIsNotifOpen(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not send message');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
 
   const fetchDashboard = async (memberId: string) => {
     setIsLoading(true);
@@ -68,23 +184,161 @@ export default function MemberDashboard() {
 
       {/* ---- Sticky Header ---- */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center font-black text-lg text-white">C</div>
             <div className="hidden sm:block">
               <p className="font-black text-white text-sm leading-tight">ChitFlow</p>
-              <p className="text-[10px] text-slateald-400 font-bold uppercase tracking-wider text-slate-400">Member Portal</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Member Portal</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
-              <Phone size={12} className="text-emerald-400" />
-              <span className="text-xs font-bold text-slate-300">{session?.phone}</span>
+          <div className="flex items-center gap-1.5 sm:gap-4 min-w-0 shrink">
+            <div className="relative" ref={notifContainerRef}>
+              <button
+                type="button"
+                onClick={() => setIsNotifOpen((open) => !open)}
+                className="relative p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all shrink-0"
+                aria-label="Messages"
+                aria-expanded={isNotifOpen}
+              >
+                <Bell size={16} className="text-slate-300" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-emerald-500 text-[8px] font-black text-white rounded-full flex items-center justify-center border border-slate-950">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+              {isNotifOpen && (
+                <>
+                  <div className="fixed inset-0 bg-black/50 z-40 sm:hidden" aria-hidden />
+                  <div
+                    className={cn(
+                      'z-50 flex flex-col bg-slate-900 border border-emerald-500/20 rounded-2xl shadow-2xl shadow-emerald-900/30 overflow-hidden',
+                      'fixed left-3 right-3 top-[3.5rem] max-h-[min(32rem,calc(100dvh-4.5rem))]',
+                      'sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))] sm:max-h-[min(28rem,70dvh)]'
+                    )}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-4 py-3 bg-gradient-to-r from-emerald-600/20 to-teal-600/10 border-b border-white/10 shrink-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle size={16} className="text-emerald-400" />
+                          <span className="text-xs font-black text-white">Messages</span>
+                          {unreadNotifCount > 0 && (
+                            <span className="text-[10px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
+                              {unreadNotifCount}
+                            </span>
+                          )}
+                        </div>
+                        {notifications.length > 0 && messageTab === 'inbox' && (
+                          <button
+                            type="button"
+                            onClick={clearAllMessages}
+                            className="text-[10px] font-bold text-red-400 hover:underline"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-1 mt-3 p-0.5 bg-black/20 rounded-lg">
+                        <button
+                          onClick={() => setMessageTab('inbox')}
+                          className={cn(
+                            'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-all',
+                            messageTab === 'inbox' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                          )}
+                        >
+                          <Inbox size={12} /> Inbox
+                        </button>
+                        <button
+                          onClick={() => setMessageTab('send')}
+                          className={cn(
+                            'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-all',
+                            messageTab === 'send' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                          )}
+                        >
+                          <Send size={12} /> Send
+                        </button>
+                      </div>
+                    </div>
+
+                    {messageTab === 'inbox' ? (
+                      <div className="flex-1 overflow-y-auto min-h-[12rem] max-h-64">
+                        {notifications.length === 0 ? (
+                          <div className="p-10 text-center">
+                            <Inbox size={28} className="text-slate-600 mx-auto mb-2" />
+                            <p className="text-xs font-bold text-slate-500">No messages from agent yet</p>
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <button
+                              key={n.id}
+                              onClick={() => markNotifRead(n.id, session?.memberId)}
+                              className={cn(
+                                'w-full px-4 py-3.5 text-left border-b border-white/5 hover:bg-white/5 transition-colors',
+                                !n.read && 'bg-emerald-500/10 border-l-2 border-l-emerald-500'
+                              )}
+                            >
+                              <p className="text-xs font-bold text-white">{n.title}</p>
+                              <p className="text-[11px] text-slate-400 mt-1 leading-snug">{n.message}</p>
+                              <p className="text-[9px] text-slate-600 mt-1.5 font-bold">{formatTimeAgo(n.createdAt)}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-4 space-y-3 shrink-0">
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Send a message to your agent. They will see it in their Messages center.
+                        </p>
+                        {groupData.length > 1 && (
+                          <select
+                            value={messageGroupId}
+                            onChange={(e) => setMessageGroupId(e.target.value)}
+                            className="w-full h-9 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-200 px-2 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                          >
+                            <option value="">All my groups</option>
+                            {groupData.map((gd) => (
+                              <option key={gd.group.id} value={gd.group.id}>
+                                {gd.group.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <textarea
+                          value={memberMessage}
+                          onChange={(e) => setMemberMessage(e.target.value)}
+                          placeholder="e.g. I paid May contribution via PhonePe..."
+                          rows={4}
+                          className="w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+                        />
+                        <button
+                          onClick={sendMessageToAgent}
+                          disabled={isSendingMessage || !memberMessage.trim()}
+                          className="w-full h-10 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/40"
+                        >
+                          {isSendingMessage ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Send size={16} />
+                          )}
+                          Send message
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-2 sm:px-3 py-1.5 max-w-[140px] md:max-w-none">
+              <Phone size={12} className="text-emerald-400 shrink-0" />
+              <span className="text-[10px] sm:text-xs font-bold text-slate-300 truncate">{session?.phone}</span>
             </div>
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 px-3 py-1.5 rounded-full transition-all"
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 px-2 sm:px-3 py-1.5 rounded-full transition-all shrink-0"
             >
               <LogOut size={13} />
               <span className="hidden sm:inline">Logout</span>
