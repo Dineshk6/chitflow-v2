@@ -7,11 +7,18 @@ import { Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
 export default function AgentLoginPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  React.useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/admin/dashboard');
+    }
+  }, [status, router]);
   const [isLoading, setIsLoading] = React.useState(false);
 
   const [identifier, setIdentifier] = React.useState('');

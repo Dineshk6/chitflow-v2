@@ -1,19 +1,18 @@
 'use client';
 
-import { jsPDF } from "jspdf";
 
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { formatCurrency, cn } from '@/lib/utils';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  Clock, 
-  Trash2, 
-  Edit3, 
-  IndianRupee, 
+import {
+  Users,
+  Plus,
+  Search,
+  CheckCircle2,
+  Clock,
+  Trash2,
+  Edit3,
+  IndianRupee,
   Calendar,
   Loader2,
   Phone,
@@ -30,8 +29,8 @@ import {
   BarChart2,
   Percent,
   Sparkles,
-  FileText,
-  Send
+  Send,
+  Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -74,6 +73,7 @@ export default function Dashboard() {
   const [editingAmountUserId, setEditingAmountUserId] = useState<string | null>(null);
   const [customAmounts, setCustomAmounts] = useState<{ [userId: string]: string }>({});
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>('none');
+  const [winnerMessageModal, setWinnerMessageModal] = useState<{ isOpen: boolean, winner: any, text: string } | null>(null);
 
   useEffect(() => {
     fetchGroups();
@@ -110,7 +110,7 @@ export default function Dashboard() {
     try {
       const url = '/api/groups';
       const method = editingGroup ? 'PUT' : 'POST';
-      const payload = editingGroup 
+      const payload = editingGroup
         ? { id: editingGroup.id, ...groupFormData }
         : groupFormData;
 
@@ -174,7 +174,7 @@ export default function Dashboard() {
       const res = await fetch(`/api/admin/customers?groupId=${groupId}`);
       const data = await res.json();
       setMembers(Array.isArray(data) ? data : []);
-      
+
       // Initialize custom amount values
       const amounts: { [userId: string]: string } = {};
       if (Array.isArray(data)) {
@@ -259,13 +259,6 @@ export default function Dashboard() {
     const amountVal = parseFloat(customAmounts[userId]) || selectedGroup.monthlyContribution;
     const currentMember = members.find(m => m.id === userId);
 
-    // If marked as PAID, automatically open WhatsApp confirmation message
-    if (nextStatus === 'PAID' && currentMember) {
-      const text = `Hi ${currentMember.name}, we have received your payment of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}". Thank you!`;
-      const url = `https://wa.me/91${currentMember.phone}?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
-    }
-
     // Optimistic UI updates
     setMembers(prev => prev.map(m => {
       if (m.id === userId) {
@@ -344,9 +337,9 @@ export default function Dashboard() {
 
   const exportToCSV = () => {
     if (!selectedGroup) return;
-    
+
     const headers = ['Member Name', 'Phone', 'Chit Lifted', 'Monthly Due', 'Payment Status', 'Cycle'];
-    
+
     const rows = filteredMembers.map(m => {
       const payment = m.payments?.find((p: any) => p.month === selectedMonth);
       const isPaid = payment?.status === 'PAID';
@@ -354,7 +347,7 @@ export default function Dashboard() {
       const isWinner = selectedWinnerId === m.id;
       const hasWonBefore = m.liftedMonths && m.liftedMonths.some((month: number) => month < selectedMonth);
       const liftStatus = isWinner ? 'Winner this month' : hasWonBefore ? 'Lifted previously' : 'Not lifted';
-      
+
       return [
         m.name,
         m.phone,
@@ -364,12 +357,12 @@ export default function Dashboard() {
         `Month ${selectedMonth}`
       ];
     });
-    
+
     const csvContent = [
       headers.join(','),
       ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -382,45 +375,19 @@ export default function Dashboard() {
     toast.success("Ledger downloaded successfully!");
   };
 
-  const sendWhatsAppReminder = (member: any) => {
-    const dueAmount = parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
-    const text = `Hi ${member.name}, your chit contribution of Rs.${dueAmount} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
+  const sendWhatsAppStatusMessage = (member: any) => {
+    const payment = member.payments?.find((p: any) => p.month === selectedMonth);
+    const isPaid = payment?.status === 'PAID';
+    const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+
+    let text = '';
+    if (isPaid) {
+      text = `Hi ${member.name}, we have received your payment of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}". Thank you!`;
+    } else {
+      text = `Hi ${member.name}, your chit contribution of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
+    }
     const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
-  };
-
-  const downloadReceipt = (member: any) => {
-    const payment = member.payments?.find((p: any) => p.month === selectedMonth);
-    const amountPaid = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
-    
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("ChitFlow Official Receipt", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Group: ${selectedGroup?.name}`, 20, 40);
-    doc.text(`Cycle: Month ${selectedMonth}`, 20, 50);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 60);
-    
-    doc.line(20, 65, 190, 65);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`Received From: ${member.name}`, 20, 75);
-    doc.text(`Phone: ${member.phone}`, 20, 85);
-    doc.text(`Amount Paid: Rs. ${amountPaid}`, 20, 95);
-    doc.text(`Status: PAID`, 20, 105);
-    
-    doc.line(20, 115, 190, 115);
-    
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(10);
-    doc.text("Thank you for your timely contribution.", 105, 125, { align: "center" });
-    doc.text("This is an electronically generated receipt.", 105, 132, { align: "center" });
-
-    doc.save(`${member.name}_Receipt_Month_${selectedMonth}.pdf`);
-    toast.success(`Receipt downloaded for ${member.name}`);
   };
 
   // Sync custom amounts on month change
@@ -430,7 +397,7 @@ export default function Dashboard() {
       members.forEach(m => {
         const payment = m.payments?.find((p: any) => p.month === selectedMonth);
         const hasWonBefore = m.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
-        const defaultAmt = hasWonBefore 
+        const defaultAmt = hasWonBefore
           ? (selectedGroup.liftedContribution?.toString() || selectedGroup.monthlyContribution.toString())
           : selectedGroup.monthlyContribution.toString();
         amounts[m.id] = payment?.amount?.toString() || defaultAmt;
@@ -455,14 +422,14 @@ export default function Dashboard() {
     // Avg fill rate per group, capped at 100%
     const avgFillRate = totalGroups > 0
       ? Math.min(
-          Math.round(
-            groups.reduce((sum: number, g: any) => {
-              const cap = g.membersLimit || 1;
-              return sum + Math.min((g._count?.members || 0) / cap, 1);
-            }, 0) / totalGroups * 100
-          ),
-          100
-        )
+        Math.round(
+          groups.reduce((sum: number, g: any) => {
+            const cap = g.membersLimit || 1;
+            return sum + Math.min((g._count?.members || 0) / cap, 1);
+          }, 0) / totalGroups * 100
+        ),
+        100
+      )
       : 0;
     return { totalGroups, totalFunds, totalMembers, fillRate: avgFillRate };
   })();
@@ -471,15 +438,15 @@ export default function Dashboard() {
   const filteredMembers = members.filter(m => {
     const matchesSearch = m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.phone.includes(memberSearchQuery);
     if (!matchesSearch) return false;
-    
+
     if (paymentFilter === 'ALL') return true;
-    
+
     const payment = m.payments?.find((p: any) => p.month === selectedMonth);
     const isPaid = payment?.status === 'PAID';
-    
+
     if (paymentFilter === 'PAID' && isPaid) return true;
     if (paymentFilter === 'PENDING' && !isPaid) return true;
-    
+
     return false;
   });
 
@@ -535,7 +502,7 @@ export default function Dashboard() {
     <AdminLayout>
       <PageWrapper>
         <div className="space-y-8 pb-12">
-          
+
           {/* ---------------- GROUP CATALOG WORKSPACE (No group selected) ---------------- */}
           <AnimatePresence mode="wait">
             {!selectedGroup ? (
@@ -612,13 +579,13 @@ export default function Dashboard() {
                       >
                         {/* Interactive glow effect */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl group-hover:scale-150 transition-all duration-500" />
-                        
+
                         <div>
                           <div className="flex justify-between items-start gap-4">
                             <span className="inline-flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
                               <Layers size={22} />
                             </span>
-                            
+
                             <div className="flex items-center gap-1.5 relative z-10">
                               <button
                                 type="button"
@@ -648,7 +615,7 @@ export default function Dashboard() {
                           </div>
 
                           <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-4 line-clamp-1">{group.name}</h3>
-                          
+
                           <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-slate-100 dark:border-slate-800">
                             <div>
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Value</p>
@@ -693,7 +660,7 @@ export default function Dashboard() {
                 )}
               </motion.div>
             ) : (
-              
+
               // ---------------- SELECTED GROUP ACTIONS CONSOLE ----------------
               <motion.div
                 key="group-workspace"
@@ -705,7 +672,7 @@ export default function Dashboard() {
                 {/* Navigation Back Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2 border-b border-slate-200/60 dark:border-slate-800/80">
                   <div className="space-y-1.5">
-                    <button 
+                    <button
                       onClick={() => setSelectedGroup(null)}
                       className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors"
                     >
@@ -729,8 +696,8 @@ export default function Dashboard() {
                       onClick={() => setActiveTab('payments')}
                       className={cn(
                         "px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all",
-                        activeTab === 'payments' 
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm" 
+                        activeTab === 'payments'
+                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                       )}
                     >
@@ -740,8 +707,8 @@ export default function Dashboard() {
                       onClick={() => setActiveTab('members')}
                       className={cn(
                         "px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all",
-                        activeTab === 'members' 
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm" 
+                        activeTab === 'members'
+                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                       )}
                     >
@@ -753,7 +720,7 @@ export default function Dashboard() {
                 {/* ---------------- PAYMENTS TRACKER TAB ---------------- */}
                 {activeTab === 'payments' && (
                   <div className="space-y-8 animate-fadeIn">
-                    
+
                     {/* Month selector and metrics summary */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex flex-wrap items-center gap-6">
@@ -762,7 +729,7 @@ export default function Dashboard() {
                           <Calendar size={20} className="text-blue-500" />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Active Cycle:</span>
                           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
-                            <select 
+                            <select
                               value={selectedMonth}
                               onChange={(e) => setSelectedMonth(Number(e.target.value))}
                               className="bg-transparent border-none text-xs font-black text-slate-800 dark:text-slate-200 focus:ring-0 cursor-pointer pr-8 uppercase tracking-wider"
@@ -781,7 +748,7 @@ export default function Dashboard() {
                           <TrendingUp size={20} className="text-amber-500" />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Chit Lifted By:</span>
                           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
-                            <select 
+                            <select
                               value={selectedWinnerId}
                               onChange={async (e) => {
                                 const winnerId = e.target.value;
@@ -798,6 +765,16 @@ export default function Dashboard() {
                                   });
                                   if (res.ok) {
                                     toast.success(winnerId === 'none' ? "Chit lift cleared successfully!" : "Chit lift winner updated successfully!");
+
+                                    if (winnerId !== 'none') {
+                                      const winner = members.find(m => m.id === winnerId);
+                                      if (winner) {
+                                        const liftAmount = selectedGroup?.liftedContribution || selectedGroup?.monthlyContribution;
+                                        const text = `Hi ${winner.name}, for this month and year (Month ${selectedMonth}, ${new Date().getFullYear()}) you have lifted the chit in "${selectedGroup?.totalAmount}". So please pay your upcoming contributions with the updated money (Rs. ${liftAmount}) as early as possible.`;
+                                        setWinnerMessageModal({ isOpen: true, winner, text });
+                                      }
+                                    }
+
                                     fetchGroupMembers(selectedGroup.id);
                                   } else {
                                     const errData = await res.json();
@@ -908,7 +885,7 @@ export default function Dashboard() {
                           </div>
                           <button
                             onClick={() => {
-                              const updated: {[id: string]: string} = {};
+                              const updated: { [id: string]: string } = {};
                               members.forEach(m => {
                                 if (m.id !== selectedWinnerId) {
                                   updated[m.id] = discountedDue.toFixed(2);
@@ -991,7 +968,7 @@ export default function Dashboard() {
                                           <>
                                             <div className="relative flex items-center">
                                               <span className="absolute left-3 text-xs font-black text-slate-400 pointer-events-none">₹</span>
-                                              <input 
+                                              <input
                                                 type="number"
                                                 value={currentInputValue}
                                                 onChange={(e) => setCustomAmounts({
@@ -1004,8 +981,8 @@ export default function Dashboard() {
                                                   hasWonBefore
                                                     ? "border-emerald-400 dark:border-emerald-700 bg-emerald-500/[0.04] text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500/20"
                                                     : isWinner
-                                                    ? "border-amber-400 dark:border-amber-700 bg-amber-500/[0.04] text-amber-600 dark:text-amber-400 focus:ring-amber-500/20"
-                                                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:ring-blue-500/20"
+                                                      ? "border-amber-400 dark:border-amber-700 bg-amber-500/[0.04] text-amber-600 dark:text-amber-400 focus:ring-amber-500/20"
+                                                      : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:ring-blue-500/20"
                                                 )}
                                               />
                                             </div>
@@ -1014,8 +991,8 @@ export default function Dashboard() {
                                               onClick={() => handleSaveCustomAmount(member.id)}
                                               className={cn(
                                                 "p-2.5 rounded-xl transition-all flex items-center justify-center shadow-sm active:scale-95 border",
-                                                isChanged 
-                                                  ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse" 
+                                                isChanged
+                                                  ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse"
                                                   : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                                               )}
                                               title={isChanged ? "Click to Save Changes" : "Amount Saved"}
@@ -1029,7 +1006,7 @@ export default function Dashboard() {
                                               </span>
                                             )}
 
-                                            
+
 
                                             {payment?.amount && payment.amount !== selectedGroup.monthlyContribution && !isWinner && !hasWonBefore && (
                                               <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30">
@@ -1045,8 +1022,8 @@ export default function Dashboard() {
                                     <div className="flex items-center gap-3">
                                       <span className={cn(
                                         "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
-                                        isPaid 
-                                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30" 
+                                        isPaid
+                                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30"
                                           : "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30"
                                       )}>
                                         {isPaid ? "Paid" : "Pending"}
@@ -1064,15 +1041,18 @@ export default function Dashboard() {
                                         {isPaid ? "Mark Pending" : "Mark Paid"}
                                       </button>
 
-                                      {!isPaid && (
-                                        <button
-                                          onClick={() => sendWhatsAppReminder(member)}
-                                          title="Send WhatsApp Reminder"
-                                          className="text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 p-1.5 rounded-lg border border-green-200 dark:border-green-800/30 transition-all"
-                                        >
-                                          <MessageCircle size={16} />
-                                        </button>
-                                      )}
+                                      <button
+                                        onClick={() => sendWhatsAppStatusMessage(member)}
+                                        title={isPaid ? "Send WhatsApp Receipt" : "Send WhatsApp Reminder"}
+                                        className={cn(
+                                          "p-1.5 rounded-lg border transition-all",
+                                          isPaid
+                                            ? "text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 border-blue-200 dark:border-blue-800/30"
+                                            : "text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 border-green-200 dark:border-green-800/30"
+                                        )}
+                                      >
+                                        <MessageCircle size={16} />
+                                      </button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1105,15 +1085,15 @@ export default function Dashboard() {
                           const isChanged = parseFloat(currentInputValue) !== dbValue && currentInputValue !== '';
 
                           return (
-                            <div 
-                              key={member.id} 
+                            <div
+                              key={member.id}
                               className={cn(
                                 "bg-white dark:bg-slate-900 p-5 rounded-[24px] border transition-all space-y-4 shadow-sm relative overflow-hidden",
                                 hasWonBefore
                                   ? "border-emerald-200 dark:border-emerald-800/80 bg-emerald-500/[0.01]"
                                   : isWinner
-                                  ? "border-amber-200 dark:border-amber-800/80 bg-amber-500/[0.01]"
-                                  : "border-slate-200 dark:border-slate-800/80"
+                                    ? "border-amber-200 dark:border-amber-800/80 bg-amber-500/[0.01]"
+                                    : "border-slate-200 dark:border-slate-800/80"
                               )}
                             >
                               {/* Member Identity & Status Badge */}
@@ -1130,8 +1110,8 @@ export default function Dashboard() {
 
                                 <span className={cn(
                                   "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider",
-                                  isPaid 
-                                    ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30" 
+                                  isPaid
+                                    ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30"
                                     : "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30"
                                 )}>
                                   {isPaid ? "Paid" : "Pending"}
@@ -1151,7 +1131,7 @@ export default function Dashboard() {
                                       Winner
                                     </span>
                                   )}
-                                  
+
                                 </div>
                               )}
 
@@ -1161,7 +1141,7 @@ export default function Dashboard() {
                                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Monthly Due (₹)</span>
                                   <div className="relative flex items-center">
                                     <span className="absolute left-3 text-xs font-black text-slate-400 pointer-events-none">₹</span>
-                                    <input 
+                                    <input
                                       type="number"
                                       value={currentInputValue}
                                       onChange={(e) => setCustomAmounts({
@@ -1174,8 +1154,8 @@ export default function Dashboard() {
                                         hasWonBefore
                                           ? "border-emerald-400 dark:border-emerald-700 bg-emerald-500/[0.04] text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500/20"
                                           : isWinner
-                                          ? "border-amber-400 dark:border-amber-700 bg-amber-500/[0.04] text-amber-600 dark:text-amber-400 focus:ring-amber-500/20"
-                                          : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:ring-blue-500/20"
+                                            ? "border-amber-400 dark:border-amber-700 bg-amber-500/[0.04] text-amber-600 dark:text-amber-400 focus:ring-amber-500/20"
+                                            : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:ring-blue-500/20"
                                       )}
                                     />
                                   </div>
@@ -1186,8 +1166,8 @@ export default function Dashboard() {
                                     onClick={() => handleSaveCustomAmount(member.id)}
                                     className={cn(
                                       "h-10 px-3.5 rounded-xl transition-all flex items-center justify-center shadow-sm active:scale-95 border",
-                                      isChanged 
-                                        ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse" 
+                                      isChanged
+                                        ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse"
                                         : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                                     )}
                                     title={isChanged ? "Save Custom Amount" : "Amount Saved"}
@@ -1206,26 +1186,19 @@ export default function Dashboard() {
                                   >
                                     {isPaid ? "Mark Pending" : "Mark Paid"}
                                   </button>
-                                  
-                                  {!isPaid && (
-                                    <button
-                                      onClick={() => sendWhatsAppReminder(member)}
-                                      title="Send WhatsApp Reminder"
-                                      className="h-10 px-3 rounded-xl border border-green-200 dark:border-green-800/30 text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-all flex items-center justify-center active:scale-[0.96]"
-                                    >
-                                      <MessageCircle size={18} />
-                                    </button>
-                                  )}
-                                  
-                                  {isPaid && (
-                                    <button
-                                      onClick={() => downloadReceipt(member)}
-                                      title="Download PDF Receipt"
-                                      className="h-10 px-3 rounded-xl border border-blue-200 dark:border-blue-800/30 text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-all flex items-center justify-center active:scale-[0.96]"
-                                    >
-                                      <FileText size={18} />
-                                    </button>
-                                  )}
+
+                                  <button
+                                    onClick={() => sendWhatsAppStatusMessage(member)}
+                                    title={isPaid ? "Send WhatsApp Receipt" : "Send WhatsApp Reminder"}
+                                    className={cn(
+                                      "h-10 px-3 rounded-xl border transition-all flex items-center justify-center active:scale-[0.96]",
+                                      isPaid
+                                        ? "text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 border-blue-200 dark:border-blue-800/30"
+                                        : "text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 border-green-200 dark:border-green-800/30"
+                                    )}
+                                  >
+                                    <MessageCircle size={18} />
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1239,15 +1212,15 @@ export default function Dashboard() {
                 {/* ---------------- MEMBERS DIRECTORY TAB ---------------- */}
                 {activeTab === 'members' && (
                   <div className="space-y-6 animate-fadeIn">
-                    
+
                     {/* Add member button and search filter */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
                       <div className="relative w-full max-w-md flex items-center gap-3">
                         <div className="relative flex-1 w-full">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                          <input 
-                            type="text" 
-                            placeholder="Search enrolled members..." 
+                          <input
+                            type="text"
+                            placeholder="Search enrolled members..."
                             value={memberSearchQuery}
                             onChange={(e) => setMemberSearchQuery(e.target.value)}
                             className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-xs shadow-sm"
@@ -1281,7 +1254,7 @@ export default function Dashboard() {
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredMembers.map((member) => (
-                          <div 
+                          <div
                             key={member.id}
                             className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-5 shadow-sm flex items-center justify-between group"
                           >
@@ -1332,7 +1305,7 @@ export default function Dashboard() {
               onClick={() => setIsGroupModalOpen(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1342,14 +1315,14 @@ export default function Dashboard() {
               <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-none mb-6">
                 {editingGroup ? "Edit Chit Group" : "Create Chit Group"}
               </h3>
-              
+
               <form onSubmit={handleCreateOrUpdateGroup} className="space-y-5">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Group Name *</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={groupFormData.name}
-                    onChange={(e) => setGroupFormData({...groupFormData, name: e.target.value})}
+                    onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
                     placeholder="e.g. Diamond Monthly 5K"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     required
@@ -1359,10 +1332,10 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Pool Value (₹) *</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={groupFormData.totalValue}
-                      onChange={(e) => setGroupFormData({...groupFormData, totalValue: e.target.value})}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, totalValue: e.target.value })}
                       placeholder="100000"
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                       required
@@ -1370,10 +1343,10 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly Contribution *</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={groupFormData.monthlyContribution}
-                      onChange={(e) => setGroupFormData({...groupFormData, monthlyContribution: e.target.value})}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, monthlyContribution: e.target.value })}
                       placeholder="5000"
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                       required
@@ -1383,10 +1356,10 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">New Due Amount After Chit Lift (₹)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={groupFormData.liftedContribution}
-                    onChange={(e) => setGroupFormData({...groupFormData, liftedContribution: e.target.value})}
+                    onChange={(e) => setGroupFormData({ ...groupFormData, liftedContribution: e.target.value })}
                     placeholder="e.g. 7500"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                   />
@@ -1395,10 +1368,10 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Months)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={groupFormData.durationMonths}
-                      onChange={(e) => setGroupFormData({...groupFormData, durationMonths: e.target.value})}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, durationMonths: e.target.value })}
                       placeholder="12"
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                       required
@@ -1406,10 +1379,10 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Members Limit</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={groupFormData.membersLimit}
-                      onChange={(e) => setGroupFormData({...groupFormData, membersLimit: e.target.value})}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, membersLimit: e.target.value })}
                       placeholder="20"
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                       required
@@ -1450,7 +1423,7 @@ export default function Dashboard() {
               onClick={() => setIsMemberModalOpen(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1460,14 +1433,14 @@ export default function Dashboard() {
               <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none mb-6">
                 Add Group Member
               </h3>
-              
+
               <form onSubmit={handleAddMember} className="space-y-5">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Member Name *</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={memberFormData.name}
-                    onChange={(e) => setMemberFormData({...memberFormData, name: e.target.value})}
+                    onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
                     placeholder="e.g. Rahul Sharma"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     required
@@ -1476,12 +1449,12 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Phone Number *</label>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     value={memberFormData.phone}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setMemberFormData({...memberFormData, phone: val});
+                      setMemberFormData({ ...memberFormData, phone: val });
                     }}
                     placeholder="e.g. 9876543210"
                     maxLength={10}
@@ -1524,7 +1497,7 @@ export default function Dashboard() {
               onClick={() => setGroupToDelete(null)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1538,7 +1511,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
                 Are you sure you want to delete <span className="font-bold text-slate-800 dark:text-slate-200">{groupToDelete.name}</span>? This action is permanent and will delete all member relationships and payments in this group.
               </p>
-              
+
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setGroupToDelete(null)}
@@ -1569,7 +1542,7 @@ export default function Dashboard() {
               onClick={() => setMemberToDelete(null)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1583,7 +1556,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
                 Are you sure you want to remove <span className="font-bold text-slate-800 dark:text-slate-200">{memberToDelete.name}</span> from the group <span className="font-bold text-slate-800 dark:text-slate-200">{selectedGroup.name}</span>? This will wipe their payment history for this group.
               </p>
-              
+
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setMemberToDelete(null)}
@@ -1597,6 +1570,66 @@ export default function Dashboard() {
                   className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20"
                 >
                   {isDeletingMember ? <Loader2 size={16} className="animate-spin" /> : <><UserX size={16} /> Remove</>}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- WINNER WHATSAPP NOTIFICATION MODAL --- */}
+      <AnimatePresence>
+        {winnerMessageModal?.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setWinnerMessageModal(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 shadow-sm border border-amber-100 dark:border-amber-900/50">
+                <Trophy size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                Winner Updated!
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                Do you want to send a congratulatory WhatsApp message to <span className="font-bold text-slate-900 dark:text-white">{winnerMessageModal.winner.name}</span>?
+              </p>
+
+              <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                <textarea
+                  className="w-full text-sm text-slate-700 dark:text-slate-300 bg-transparent outline-none resize-none min-h-[100px]"
+                  value={winnerMessageModal.text}
+                  onChange={(e) => setWinnerMessageModal({ ...winnerMessageModal, text: e.target.value })}
+                />
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 text-right">Editable Message</p>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setWinnerMessageModal(null)}
+                  className="flex-1 h-12 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const url = `https://wa.me/91${winnerMessageModal.winner.phone}?text=${encodeURIComponent(winnerMessageModal.text)}`;
+                    window.open(url, '_blank');
+                    setWinnerMessageModal(null);
+                  }}
+                  className="flex-1 h-12 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white font-black transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider shadow-lg shadow-green-500/20"
+                >
+                  <MessageCircle size={16} /> Send Message
                 </button>
               </div>
             </motion.div>

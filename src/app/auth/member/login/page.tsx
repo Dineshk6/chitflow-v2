@@ -10,6 +10,13 @@ import { toast } from 'sonner';
 
 export default function MemberLoginPage() {
   const router = useRouter();
+
+  React.useEffect(() => {
+    const memberSession = localStorage.getItem('memberSession');
+    if (memberSession) {
+      router.replace('/member/dashboard');
+    }
+  }, [router]);
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
