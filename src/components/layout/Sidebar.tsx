@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigation } from './NavigationProgress';
 
 const adminItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
@@ -47,12 +48,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const { startNavigation } = useNavigation();
   const [collapsed, setCollapsed] = React.useState(false);
   const [role, setRole] = React.useState<string | null>(null);
+  const [pendingHref, setPendingHref] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setRole(localStorage.getItem('userRole'));
   }, []);
+
+  React.useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   const items = role === 'admin' ? adminItems : memberItems;
 
@@ -107,16 +114,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
         {items.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const isPending = pendingHref === item.href;
           return (
-            <Link
+            <button
               key={item.name}
-              href={item.href}
-              onClick={onClose}
+              type="button"
+              onClick={() => {
+                if (pathname.startsWith(item.href)) {
+                  onClose?.();
+                  return;
+                }
+                startNavigation();
+                setPendingHref(item.href);
+                onClose?.();
+                router.push(item.href);
+              }}
+              disabled={isPending}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
+                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative w-full text-left",
                 isActive 
                   ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold" 
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-900 dark:hover:text-white"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-900 dark:hover:text-white",
+                isPending && "opacity-80"
               )}
             >
               {isActive && (
@@ -129,8 +148,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 "min-w-[20px] transition-colors relative z-10",
                 isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
               )} />
-              {!collapsed && <span className="text-sm relative z-10">{item.name}</span>}
-            </Link>
+              {!collapsed && (
+                <span className="text-sm relative z-10 flex-1 truncate">
+                  {item.name}
+                </span>
+              )}
+            </button>
           );
         })}
       </nav>

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from 'sonner';
+import { NavigationProgress } from '@/components/layout/NavigationProgress';
 
 export default function RootLayout({
   children,
@@ -29,8 +30,10 @@ export default function RootLayout({
     <html lang="en" className="light" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          {children}
-          <Toaster position="top-right" richColors closeButton />
+          <NavigationProgress>
+            {children}
+            <Toaster position="top-right" richColors closeButton />
+          </NavigationProgress>
         </Providers>
       </body>
     </html>
