@@ -176,7 +176,7 @@ export default function NotificationsPage() {
     <AdminLayout>
       <div className="space-y-4 sm:space-y-6 w-full min-w-0">
         {/* Header */}
-        <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-4 sm:p-6 md:p-8 text-white shadow-lg shadow-blue-500/20">
+        <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 sm:p-6 md:p-8 text-white shadow-lg border border-indigo-900/20">
           <div className="flex flex-col gap-4 md:gap-6">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-2">

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, Bell, Menu, MessageCircle } from 'lucide-react';
+import { Search, Bell, Menu, MessageCircle, X } from 'lucide-react';
 import { cn, formatTimeAgo } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -102,15 +102,16 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b border-slate-200 px-3 sm:px-6 transition-all duration-300 bg-white',
-        isScrolled && 'shadow-sm'
+        'sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b border-indigo-900/30 px-3 sm:px-6 transition-all duration-300',
+        'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white',
+        isScrolled && 'shadow-lg shadow-slate-900/20'
       )}
     >
       <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
         <button
           type="button"
           onClick={onMenuClick}
-          className="p-2 -ml-1 rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden shrink-0"
+          className="p-2 -ml-1 rounded-xl text-slate-300 hover:bg-white/10 lg:hidden shrink-0"
           aria-label="Open menu"
         >
           <Menu size={20} />
@@ -118,13 +119,13 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
 
         <div className="relative w-full max-w-md hidden lg:block group min-w-0">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-300 transition-colors"
             size={18}
           />
           <input
             type="text"
             placeholder="Search groups, customers..."
-            className="w-full h-10 sm:h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm text-slate-800"
+            className="w-full h-10 sm:h-11 pl-10 pr-4 rounded-xl border border-white/10 bg-white/10 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/50 transition-all text-sm"
           />
         </div>
       </div>
@@ -133,13 +134,13 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         <button
           type="button"
           onClick={() => setIsNotifOpen((open) => !open)}
-          className="relative p-2 sm:p-2.5 rounded-xl text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all"
+          className="relative p-2 sm:p-2.5 rounded-xl text-slate-200 hover:bg-white/10 border border-white/10 transition-all"
           aria-label="Messages"
           aria-expanded={isNotifOpen}
         >
           <Bell size={18} className="sm:w-5 sm:h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] px-1 bg-blue-600 text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] px-1 bg-blue-500 text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-slate-900">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -148,18 +149,18 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         {isNotifOpen && (
           <>
             <div
-              className="fixed inset-0 bg-slate-900/40 z-40 sm:hidden"
+              className="fixed inset-0 bg-slate-900/50 z-40 sm:hidden"
               aria-hidden
             />
             <div
               className={cn(
-                'z-50 bg-white border border-slate-200 shadow-xl overflow-hidden flex flex-col',
+                'z-50 bg-white border border-slate-200 shadow-xl overflow-hidden flex flex-col text-slate-900',
                 'fixed left-3 right-3 top-[3.75rem] max-h-[min(28rem,calc(100dvh-5rem))] rounded-2xl',
                 'sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[min(22rem,calc(100vw-2rem))] sm:max-h-[min(24rem,70dvh)]'
               )}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex justify-between items-start gap-2 shrink-0">
+              <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-start gap-2 shrink-0">
                 <div className="min-w-0">
                   <span className="text-xs font-black uppercase tracking-widest text-slate-800">
                     Messages
@@ -170,15 +171,25 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
                     </p>
                   )}
                 </div>
-                {notifications.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {notifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAllMessages}
+                      className="text-[10px] font-bold text-red-600 hover:underline py-1"
+                    >
+                      Clear all
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={clearAllMessages}
-                    className="text-[10px] font-bold text-red-600 hover:underline shrink-0 py-1"
+                    onClick={() => setIsNotifOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all"
+                    aria-label="Close notifications"
                   >
-                    Clear all
+                    <X size={15} />
                   </button>
-                )}
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
                 {notifications.length === 0 ? (
@@ -217,7 +228,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
                 )}
               </div>
               {isAdmin && (
-                <div className="px-3 sm:px-4 py-3 border-t border-slate-100 bg-slate-50 shrink-0 safe-area-pb">
+                <div className="px-3 sm:px-4 py-3 border-t border-slate-100 bg-slate-50 shrink-0">
                   <Link
                     href="/admin/notifications"
                     onClick={() => setIsNotifOpen(false)}

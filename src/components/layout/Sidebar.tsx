@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
@@ -22,6 +21,7 @@ import { cn } from '@/lib/utils';
 
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigation } from './NavigationProgress';
 
 const adminItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
@@ -47,12 +47,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const { startNavigation } = useNavigation();
   const [collapsed, setCollapsed] = React.useState(false);
   const [role, setRole] = React.useState<string | null>(null);
+  const [pendingHref, setPendingHref] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setRole(localStorage.getItem('userRole'));
   }, []);
+
+  React.useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   const items = role === 'admin' ? adminItems : memberItems;
 
@@ -73,31 +79,43 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  const handleNavigate = (href: string) => {
+    if (pathname.startsWith(href)) {
+      onClose?.();
+      return;
+    }
+    startNavigation();
+    setPendingHref(href);
+    onClose?.();
+    router.push(href);
+  };
+
   const SidebarContent = (
     <div 
       className={cn(
-        "flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out overflow-hidden",
+        "flex flex-col h-full bg-white border-r border-slate-200 transition-all duration-300 ease-in-out overflow-hidden",
         collapsed ? "w-20" : "w-64"
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 h-16 border-b border-slate-100 dark:border-white/5 flex-shrink-0">
+      <div className="flex items-center justify-between p-4 h-16 border-b border-indigo-900/20 bg-gradient-to-r from-slate-900 to-indigo-950 flex-shrink-0">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-xl shadow-md shrink-0">
               C
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">ChitFlow</span>
+            <span className="font-bold text-lg tracking-tight text-white truncate">ChitFlow</span>
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-md">
             C
           </div>
         )}
         <button 
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors hidden md:block"
+          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors hidden md:block shrink-0"
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
@@ -107,47 +125,58 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
         {items.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const isPending = pendingHref === item.href;
           return (
-            <Link
+            <button
               key={item.name}
-              href={item.href}
-              onClick={onClose}
+              type="button"
+              onClick={() => handleNavigate(item.href)}
+              disabled={isPending}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
+                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative w-full text-left",
                 isActive 
-                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold" 
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-blue-50 text-blue-700 font-bold" 
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                isPending && "opacity-80"
               )}
             >
               {isActive && (
                 <motion.div 
                   layoutId="active-pill"
-                  className="absolute left-0 w-1 h-6 bg-blue-600 dark:bg-blue-500 rounded-r-full"
+                  className="absolute left-0 w-1 h-6 bg-blue-600 rounded-r-full"
                 />
               )}
-              <item.icon size={20} className={cn(
-                "min-w-[20px] transition-colors relative z-10",
-                isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
-              )} />
-              {!collapsed && <span className="text-sm relative z-10">{item.name}</span>}
-            </Link>
+              {isPending ? (
+                <Loader2 size={20} className="min-w-[20px] animate-spin text-blue-600 relative z-10" />
+              ) : (
+                <item.icon size={20} className={cn(
+                  "min-w-[20px] transition-colors relative z-10",
+                  isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
+                )} />
+              )}
+              {!collapsed && (
+                <span className="text-sm relative z-10 flex-1 truncate">
+                  {isPending ? 'Loading...' : item.name}
+                </span>
+              )}
+            </button>
           );
         })}
       </nav>
 
       {/* Bottom — always visible, never scrolled away */}
-      <div className="flex-shrink-0 p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900/20">
+      <div className="flex-shrink-0 p-4 border-t border-slate-100 bg-slate-50">
         <div className={cn(
-          "flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/5 mb-3 shadow-sm",
+          "flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 mb-3 shadow-sm",
           collapsed ? "justify-center" : "px-3"
         )}>
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-[10px] shadow-md shadow-blue-600/20">
+          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-[10px] shadow-md shrink-0">
             {userInitials}
           </div>
           {!collapsed && (
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tight">{userName}</p>
-              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate uppercase tracking-widest opacity-80">
+            <div className="flex-1 overflow-hidden min-w-0">
+              <p className="text-xs font-bold text-slate-900 truncate uppercase tracking-tight">{userName}</p>
+              <p className="text-[10px] font-bold text-indigo-600 truncate uppercase tracking-widest">
                 {role === 'admin' ? 'Agent' : 'Member'}
               </p>
             </div>
@@ -155,10 +184,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
         
         <button 
+          type="button"
           onClick={() => setShowLogoutModal(true)}
           disabled={isLoggingOut}
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 transition-all font-bold group border border-transparent hover:border-red-600 dark:hover:border-red-500",
+            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-slate-500 hover:bg-red-500 hover:text-white transition-all font-bold group border border-transparent hover:border-red-500",
             collapsed ? "justify-center" : ""
           )}
         >
