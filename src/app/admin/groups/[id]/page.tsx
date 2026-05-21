@@ -35,6 +35,44 @@ export default function GroupDetailsPage() {
 
   const [currentAuction, setCurrentAuction] = useState<any>(null);
 
+  const [editMemberNameModal, setEditMemberNameModal] = useState<{
+    isOpen: boolean;
+    membershipId: string;
+    name: string;
+  }>({
+    isOpen: false,
+    membershipId: '',
+    name: '',
+  });
+  const [isUpdatingMemberName, setIsUpdatingMemberName] = useState(false);
+
+  const handleUpdateMemberName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingMemberName(true);
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          membershipId: editMemberNameModal.membershipId,
+          name: editMemberNameModal.name,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Member name updated successfully!");
+        setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' });
+        fetchGroupDetails();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update member name");
+      }
+    } catch (error) {
+      toast.error("Something went wrong");
+    } finally {
+      setIsUpdatingMemberName(false);
+    }
+  };
+
   useEffect(() => {
     if (groupId) {
       fetchGroupDetails();
@@ -487,7 +525,19 @@ export default function GroupDetailsPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                              <button 
+                                onClick={() => {
+                                  setEditMemberNameModal({
+                                    isOpen: true,
+                                    membershipId: membership.id,
+                                    name: membership.user.name,
+                                  });
+                                }}
+                                className="text-xs font-bold text-blue-600 hover:underline"
+                              >
+                                Edit Name
+                              </button>
                               <button className="text-xs font-bold text-red-600 hover:underline">Remove</button>
                             </td>
                           </tr>
@@ -593,6 +643,57 @@ export default function GroupDetailsPage() {
               >
                 {isUpdatingGroup ? <Loader2 className="animate-spin" size={20} /> : "Save Changes"}
               </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+      {editMemberNameModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
+          >
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Member Name</h3>
+                <p className="text-xs text-slate-500">Update how this member's name appears in this group</p>
+              </div>
+              <button 
+                onClick={() => setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' })} 
+                className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 text-lg hover:bg-slate-100 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleUpdateMemberName} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Member Name</label>
+                <input 
+                  required
+                  name="name" 
+                  value={editMemberNameModal.name} 
+                  onChange={(e) => setEditMemberNameModal(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter name"
+                  className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" 
+                />
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' })}
+                  className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-50 transition-all text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isUpdatingMemberName}
+                  className="flex-[2] h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 text-sm disabled:opacity-75"
+                >
+                  {isUpdatingMemberName ? <Loader2 className="animate-spin" size={18} /> : "Save Changes"}
+                </button>
+              </div>
             </form>
           </motion.div>
         </div>

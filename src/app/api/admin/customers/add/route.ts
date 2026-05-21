@@ -67,7 +67,8 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         groupId: groupId,
-        status: "ACTIVE"
+        status: "ACTIVE",
+        customName: name.trim(),
       }
     });
 

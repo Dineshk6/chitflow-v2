@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Lock, ArrowRight, Building, ShieldCheck } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Building, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -108,10 +108,19 @@ export default function AgentRegisterPage() {
         <div className="bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[32px] shadow-2xl p-8 overflow-hidden relative">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
           
+          <div className="flex items-center justify-start mb-6">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-blue-400 transition-colors group">
+              <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+              Back to Home
+            </Link>
+          </div>
+
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-blue-500/30 mx-auto mb-6 transform -rotate-3 hover:rotate-0 transition-transform">
-              C
-            </div>
+            <Link href="/" className="block w-max mx-auto mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-blue-500/30 transform -rotate-3 hover:rotate-0 transition-transform cursor-pointer">
+                C
+              </div>
+            </Link>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">Agent Registration</h1>
             <p className="text-slate-400 font-medium text-sm">Create your workspace to automate collections and grow your chit fund.</p>
           </div>

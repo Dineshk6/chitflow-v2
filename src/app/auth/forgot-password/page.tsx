@@ -9,13 +9,19 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center relative p-6">
+      {/* Floating Back to Home */}
+      <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 hover:text-white text-xs font-extrabold uppercase tracking-widest transition-all duration-300 hover:bg-slate-900/90 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95 group">
+        <ArrowLeft size={14} className="text-slate-400 group-hover:text-blue-400 group-hover:-translate-x-1 transition-transform duration-300" />
+        Back to Home
+      </Link>
+
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 p-10 md:p-14 shadow-2xl relative overflow-hidden">
         {/* Decorative */}
         <div className="absolute top-0 right-0 w-32 h-32 gradient-blue opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
         
         <div className="relative z-10">
-          <Link href="/auth/login" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors mb-10 group">
+          <Link href="/auth/admin/login" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors mb-10 group">
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
             Back to Login
           </Link>

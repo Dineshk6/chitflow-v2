@@ -30,6 +30,7 @@ import {
   Sparkles,
   Send,
   Trophy,
+  Copy,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'members' | 'payments'>('payments');
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
   // Group forms
@@ -59,6 +61,7 @@ export default function Dashboard() {
     liftedContribution: ''
   });
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
+  const [groupErrors, setGroupErrors] = useState<Record<string, string>>({});
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
 
   // Member states
@@ -70,6 +73,46 @@ export default function Dashboard() {
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
+
+  const [editMemberNameModal, setEditMemberNameModal] = useState<{
+    isOpen: boolean;
+    membershipId: string;
+    name: string;
+  }>({
+    isOpen: false,
+    membershipId: '',
+    name: '',
+  });
+  const [isUpdatingMemberName, setIsUpdatingMemberName] = useState(false);
+
+  const handleUpdateMemberName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingMemberName(true);
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          membershipId: editMemberNameModal.membershipId,
+          name: editMemberNameModal.name,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Member name updated successfully!");
+        setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' });
+        if (selectedGroup) {
+          fetchGroupMembers(selectedGroup.id);
+        }
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update member name");
+      }
+    } catch (error) {
+      toast.error("Something went wrong");
+    } finally {
+      setIsUpdatingMemberName(false);
+    }
+  };
 
   // Payment states
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
@@ -104,11 +147,44 @@ export default function Dashboard() {
 
   const handleCreateOrUpdateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!groupFormData.name || !groupFormData.totalValue || !groupFormData.monthlyContribution) {
-      toast.error("Please fill in all required fields");
+    
+    // Client-side validation
+    const errors: Record<string, string> = {};
+    if (!groupFormData.name?.trim()) {
+      errors.name = "Group Name is required";
+    }
+    
+    if (!groupFormData.totalValue) {
+      errors.totalValue = "Total Pool Value is required";
+    } else if (isNaN(Number(groupFormData.totalValue)) || Number(groupFormData.totalValue) <= 0) {
+      errors.totalValue = "Must be a valid positive number";
+    }
+
+    if (!groupFormData.monthlyContribution) {
+      errors.monthlyContribution = "Monthly contribution is required";
+    } else if (isNaN(Number(groupFormData.monthlyContribution)) || Number(groupFormData.monthlyContribution) <= 0) {
+      errors.monthlyContribution = "Must be a valid positive number";
+    }
+
+    if (!groupFormData.durationMonths) {
+      errors.durationMonths = "Duration is required";
+    } else if (isNaN(Number(groupFormData.durationMonths)) || Number(groupFormData.durationMonths) <= 0) {
+      errors.durationMonths = "Must be a valid positive integer";
+    }
+
+    if (!groupFormData.membersLimit) {
+      errors.membersLimit = "Members limit is required";
+    } else if (isNaN(Number(groupFormData.membersLimit)) || Number(groupFormData.membersLimit) <= 0) {
+      errors.membersLimit = "Must be a valid positive integer";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setGroupErrors(errors);
+      toast.error("Please correct the form errors before submitting");
       return;
     }
 
+    setGroupErrors({});
     setIsSubmittingGroup(true);
     try {
       const url = '/api/groups';
@@ -382,15 +458,45 @@ export default function Dashboard() {
     const payment = member.payments?.find((p: any) => p.month === selectedMonth);
     const isPaid = payment?.status === 'PAID';
     const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+    const totalMonths = selectedGroup?.duration;
+
+    const monthNames = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+    const now = new Date();
+    const calMonth = monthNames[now.getMonth()];
+    const calYear = now.getFullYear();
 
     let text = '';
     if (isPaid) {
-      text = `Hi ${member.name}, we have received your payment of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}". Thank you!`;
+      text = `Hi ${member.name},\n\nWe have received your payment of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}".\n\nThank you! ✅`;
     } else {
-      text = `Hi ${member.name}, your chit contribution of Rs.${amountVal} for Month ${selectedMonth} in the group "${selectedGroup?.name}" is pending. Please pay at your earliest convenience.`;
+      text = `Hi ${member.name},\n\nYour chit contribution of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}" is pending.\n\nPlease pay at your earliest convenience. 🙏`;
     }
     const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
+  };
+
+  const copyStatusMessage = (member: any) => {
+    const payment = member.payments?.find((p: any) => p.month === selectedMonth);
+    const isPaid = payment?.status === 'PAID';
+    const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+    const totalMonths = selectedGroup?.duration;
+
+    const monthNames = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+    const now = new Date();
+    const calMonth = monthNames[now.getMonth()];
+    const calYear = now.getFullYear();
+
+    let text = '';
+    if (isPaid) {
+      text = `Hi ${member.name},\n\nWe have received your payment of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}".\n\nThank you! ✅`;
+    } else {
+      text = `Hi ${member.name},\n\nYour chit contribution of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}" is pending.\n\nPlease pay at your earliest convenience. 🙏`;
+    }
+
+    navigator.clipboard.writeText(text);
+    toast.success("Reminder/Receipt copied to clipboard!");
   };
 
   // Sync custom amounts on month change
@@ -438,6 +544,12 @@ export default function Dashboard() {
   })();
 
   // Computations
+  const filteredGroups = groups.filter(g => 
+    g.name.toLowerCase().includes(groupSearchQuery.toLowerCase()) ||
+    g.totalAmount.toString().includes(groupSearchQuery) ||
+    g.monthlyContribution.toString().includes(groupSearchQuery)
+  );
+
   const filteredMembers = members.filter(m => {
     const matchesSearch = m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.phone.includes(memberSearchQuery);
     if (!matchesSearch) return false;
@@ -485,6 +597,7 @@ export default function Dashboard() {
       monthlyContribution: group.monthlyContribution.toString(),
       liftedContribution: (group.liftedContribution ?? group.monthlyContribution).toString()
     });
+    setGroupErrors({});
     setIsGroupModalOpen(true);
   };
 
@@ -498,6 +611,7 @@ export default function Dashboard() {
       monthlyContribution: '',
       liftedContribution: ''
     });
+    setGroupErrors({});
     setIsGroupModalOpen(true);
   };
 
@@ -555,12 +669,41 @@ export default function Dashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {groups.map((group, idx) => (
-                      <motion.div
-                        key={group.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
+                  <div className="space-y-6">
+                    {/* Groups Search Bar */}
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <Search size={18} />
+                      </span>
+                      <input
+                        type="text"
+                        value={groupSearchQuery}
+                        onChange={(e) => setGroupSearchQuery(e.target.value)}
+                        placeholder="Search groups by name, pool size, or monthly contribution..."
+                        className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold transition-all shadow-sm"
+                      />
+                      {groupSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setGroupSearchQuery('')}
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-black text-blue-600 hover:text-blue-700"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {filteredGroups.length === 0 ? (
+                      <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <p className="text-slate-500 font-medium text-sm">No chit groups matched &quot;{groupSearchQuery}&quot;</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {filteredGroups.map((group, idx) => (
+                          <motion.div
+                            key={group.id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.08 + idx * 0.04 }}
                         whileHover={{ y: -3 }}
                         className="surface-card !rounded-2xl overflow-hidden flex flex-col"
@@ -629,6 +772,8 @@ export default function Dashboard() {
                         </button>
                       </motion.div>
                     ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -737,10 +882,15 @@ export default function Dashboard() {
                                   if (winnerId !== 'none') {
                                     const winner = members.find((m) => m.id === winnerId);
                                     if (winner) {
-                                      const liftAmount =
-                                        selectedGroup?.liftedContribution ||
-                                        selectedGroup?.monthlyContribution;
-                                      const text = `Hi ${winner.name}, for this month and year (Month ${selectedMonth}, ${new Date().getFullYear()}) you have lifted the chit in "${selectedGroup?.totalAmount}". So please pay your upcoming contributions with the updated money (Rs. ${liftAmount}) as early as possible.`;
+                                      const monthNames = ['January','February','March','April','May','June',
+                                                          'July','August','September','October','November','December'];
+                                      const now = new Date();
+                                      const calMonth = monthNames[now.getMonth()];
+                                      const calYear = now.getFullYear();
+                                      const hasChanged = selectedGroup.liftedContribution && selectedGroup.liftedContribution !== selectedGroup.monthlyContribution;
+                                      const nextMonthDue = hasChanged ? selectedGroup.liftedContribution : selectedGroup.monthlyContribution;
+                                      const dueLabel = hasChanged ? 'updated contribution' : 'contribution';
+                                      const text = `Hi ${winner.name}, Congratulations! 🎉\n\nYou have lifted the chit for Month ${selectedMonth} of ${selectedGroup?.duration} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}"  lifted amount _________\nPlease make sure you pay your ${dueLabel} of ₹${nextMonthDue} from next month onwards, without any delay to make the chit flow easy and secure. 🙏`;
                                       setWinnerMessageModal({ isOpen: true, winner, text });
                                     }
                                   }
@@ -965,6 +1115,14 @@ export default function Dashboard() {
                                       >
                                         <MessageCircle size={16} />
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => copyStatusMessage(member)}
+                                        title="Copy Reminder/Receipt Template"
+                                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                      >
+                                        <Copy size={16} />
+                                      </button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1095,6 +1253,14 @@ export default function Dashboard() {
                                   >
                                     <MessageCircle size={18} />
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyStatusMessage(member)}
+                                    title="Copy Reminder/Receipt Template"
+                                    className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center active:scale-[0.96]"
+                                  >
+                                    <Copy size={16} />
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1168,13 +1334,26 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            <button
-                              onClick={() => setMemberToDelete(member)}
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"
-                              title="Remove from group"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setEditMemberNameModal({
+                                  isOpen: true,
+                                  membershipId: member.membershipId,
+                                  name: member.name,
+                                })}
+                                className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"
+                                title="Edit member name"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+                              <button
+                                onClick={() => setMemberToDelete(member)}
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"
+                                title="Remove from group"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1213,17 +1392,27 @@ export default function Dashboard() {
                 {editingGroup ? "Edit Chit Group" : "Create Chit Group"}
               </h3>
 
-              <form onSubmit={handleCreateOrUpdateGroup} className="space-y-5">
+              <form onSubmit={handleCreateOrUpdateGroup} className="space-y-5" noValidate>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Group Name *</label>
                   <input
                     type="text"
                     value={groupFormData.name}
-                    onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
+                    onChange={(e) => {
+                      setGroupFormData({ ...groupFormData, name: e.target.value });
+                      if (groupErrors.name) setGroupErrors({ ...groupErrors, name: '' });
+                    }}
                     placeholder="e.g. Diamond Monthly 5K"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                    required
+                    className={cn(
+                      "w-full h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 text-sm font-semibold transition-all",
+                      groupErrors.name 
+                        ? "border-red-500 focus:ring-red-500/20" 
+                        : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
+                    )}
                   />
+                  {groupErrors.name && (
+                    <p className="text-[11px] text-red-500 font-bold mt-1.5">{groupErrors.name}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1232,22 +1421,42 @@ export default function Dashboard() {
                     <input
                       type="number"
                       value={groupFormData.totalValue}
-                      onChange={(e) => setGroupFormData({ ...groupFormData, totalValue: e.target.value })}
+                      onChange={(e) => {
+                        setGroupFormData({ ...groupFormData, totalValue: e.target.value });
+                        if (groupErrors.totalValue) setGroupErrors({ ...groupErrors, totalValue: '' });
+                      }}
                       placeholder="100000"
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                      required
+                      className={cn(
+                        "w-full h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 text-sm font-semibold transition-all",
+                        groupErrors.totalValue 
+                          ? "border-red-500 focus:ring-red-500/20" 
+                          : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
+                      )}
                     />
+                    {groupErrors.totalValue && (
+                      <p className="text-[11px] text-red-500 font-bold mt-1.5">{groupErrors.totalValue}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly Pay *</label>
                     <input
                       type="number"
                       value={groupFormData.monthlyContribution}
-                      onChange={(e) => setGroupFormData({ ...groupFormData, monthlyContribution: e.target.value })}
+                      onChange={(e) => {
+                        setGroupFormData({ ...groupFormData, monthlyContribution: e.target.value });
+                        if (groupErrors.monthlyContribution) setGroupErrors({ ...groupErrors, monthlyContribution: '' });
+                      }}
                       placeholder="5000"
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                      required
+                      className={cn(
+                        "w-full h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 text-sm font-semibold transition-all",
+                        groupErrors.monthlyContribution 
+                          ? "border-red-500 focus:ring-red-500/20" 
+                          : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
+                      )}
                     />
+                    {groupErrors.monthlyContribution && (
+                      <p className="text-[11px] text-red-500 font-bold mt-1.5">{groupErrors.monthlyContribution}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1264,26 +1473,46 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Months)</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Months) *</label>
                     <input
                       type="number"
                       value={groupFormData.durationMonths}
-                      onChange={(e) => setGroupFormData({ ...groupFormData, durationMonths: e.target.value })}
+                      onChange={(e) => {
+                        setGroupFormData({ ...groupFormData, durationMonths: e.target.value });
+                        if (groupErrors.durationMonths) setGroupErrors({ ...groupErrors, durationMonths: '' });
+                      }}
                       placeholder="12"
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                      required
+                      className={cn(
+                        "w-full h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 text-sm font-semibold transition-all",
+                        groupErrors.durationMonths 
+                          ? "border-red-500 focus:ring-red-500/20" 
+                          : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
+                      )}
                     />
+                    {groupErrors.durationMonths && (
+                      <p className="text-[11px] text-red-500 font-bold mt-1.5">{groupErrors.durationMonths}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Members Limit</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Members Limit *</label>
                     <input
                       type="number"
                       value={groupFormData.membersLimit}
-                      onChange={(e) => setGroupFormData({ ...groupFormData, membersLimit: e.target.value })}
+                      onChange={(e) => {
+                        setGroupFormData({ ...groupFormData, membersLimit: e.target.value });
+                        if (groupErrors.membersLimit) setGroupErrors({ ...groupErrors, membersLimit: '' });
+                      }}
                       placeholder="20"
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                      required
+                      className={cn(
+                        "w-full h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 text-sm font-semibold transition-all",
+                        groupErrors.membersLimit 
+                          ? "border-red-500 focus:ring-red-500/20" 
+                          : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
+                      )}
                     />
+                    {groupErrors.membersLimit && (
+                      <p className="text-[11px] text-red-500 font-bold mt-1.5">{groupErrors.membersLimit}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1546,6 +1775,71 @@ export default function Dashboard() {
                   <MessageCircle size={16} /> Send Message
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editMemberNameModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' })}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Edit Member Name</h3>
+                  <p className="text-xs text-slate-500 mt-1">Update how this member's name appears in this group</p>
+                </div>
+                <button 
+                  onClick={() => setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' })}
+                  className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateMemberName} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Member Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={editMemberNameModal.name}
+                    onChange={(e) => setEditMemberNameModal(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter name"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditMemberNameModal({ isOpen: false, membershipId: '', name: '' })}
+                    className="flex-1 h-12 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingMemberName}
+                    className="flex-[2] h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 disabled:opacity-75"
+                  >
+                    {isUpdatingMemberName ? <Loader2 className="animate-spin" size={16} /> : "Save Changes"}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

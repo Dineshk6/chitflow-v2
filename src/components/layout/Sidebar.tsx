@@ -208,64 +208,67 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </>
         )}
       </AnimatePresence>
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={handleLogout}
-        isLoggingOut={isLoggingOut}
-      />
+      <AnimatePresence>
+        {showLogoutModal && (
+          <LogoutModal
+            onClose={() => setShowLogoutModal(false)}
+            onConfirm={handleLogout}
+            isLoggingOut={isLoggingOut}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }
 
 function LogoutModal({
-  isOpen,
   onClose,
   onConfirm,
   isLoggingOut,
 }: {
-  isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   isLoggingOut: boolean;
 }) {
-  if (!isOpen) return null;
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 12 }}
-          className="relative w-full max-w-sm surface-card p-6 text-center shadow-2xl"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 mx-auto mb-4">
-            <LogOut size={28} />
-          </div>
-          <h3 className="text-xl font-black text-slate-900 mb-2">Sign out?</h3>
-          <p className="text-sm text-slate-600 mb-6">You&apos;ll need to sign in again to access the agent dashboard.</p>
-          <div className="flex flex-col-reverse sm:flex-row gap-3">
-            <button type="button" onClick={onClose} disabled={isLoggingOut} className="btn-secondary flex-1 !h-11">
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={isLoggingOut}
-              className="flex-1 h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-2"
-            >
-              {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Sign out'}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        className="relative w-full max-w-sm bg-white dark:bg-slate-900 p-6 text-center shadow-2xl rounded-[32px] border border-slate-100 dark:border-slate-800"
+      >
+        <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mx-auto mb-4">
+          <LogOut size={28} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Sign out?</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">You&apos;ll need to sign in again to access the agent dashboard.</p>
+        <div className="grid grid-cols-2 gap-3 mt-6">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            disabled={isLoggingOut} 
+            className="h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold active:scale-[0.98] transition-all duration-200 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoggingOut}
+            className="h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all duration-200 text-sm"
+          >
+            {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Sign out'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
   );
 }

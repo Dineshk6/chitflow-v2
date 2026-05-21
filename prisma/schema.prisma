@@ -75,13 +75,14 @@ enum MemberStatus {
 }
 
 model GroupMember {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String       @db.ObjectId
-  groupId   String       @db.ObjectId
-  status    MemberStatus @default(PENDING)
-  user      User         @relation(fields: [userId], references: [id])
-  group     ChitGroup    @relation(fields: [groupId], references: [id])
-  joinedAt  DateTime     @default(now())
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String       @db.ObjectId
+  groupId    String       @db.ObjectId
+  status     MemberStatus @default(PENDING)
+  customName String?
+  user       User         @relation(fields: [userId], references: [id])
+  group      ChitGroup    @relation(fields: [groupId], references: [id])
+  joinedAt   DateTime     @default(now())
 
   @@unique([userId, groupId])
 }

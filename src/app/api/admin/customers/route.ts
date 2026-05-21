@@ -65,6 +65,9 @@ export async function GET(req: Request) {
 
       return {
         ...m.user,
+        name: m.customName || m.user.name,
+        customName: m.customName,
+        membershipId: m.id,
         payments: userPayments,
         liftedMonths
       };
@@ -77,7 +80,7 @@ export async function GET(req: Request) {
   }
 }
 
-// PATCH update payment status, custom due amount, or chit lift winner
+// PATCH update payment status, custom due amount, chit lift winner, or custom member name
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -86,7 +89,25 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId, groupId, month, status, amount, winnerId } = await req.json();
+    const body = await req.json();
+    const { userId, groupId, month, status, amount, winnerId, name, membershipId } = body;
+
+    // CASE 3: Updating membership customName (edit name)
+    if (name !== undefined) {
+      if (!membershipId && (!userId || !groupId)) {
+        return NextResponse.json({ error: "Missing membershipId or userId/groupId" }, { status: 400 });
+      }
+
+      const membership = await prisma.groupMember.update({
+        where: membershipId 
+          ? { id: membershipId } 
+          : { userId_groupId: { userId, groupId } },
+        data: {
+          customName: name.trim() || null
+        }
+      });
+      return NextResponse.json({ message: "Member name updated successfully!", membership });
+    }
 
     if (!groupId || month === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });

@@ -33,6 +33,7 @@ export async function GET(
         },
         auctions: {
           include: {
+            winner: { select: { id: true, name: true } },
             bids: {
               include: {
                 user: { select: { id: true, name: true } }
@@ -54,7 +55,62 @@ export async function GET(
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
 
-    return NextResponse.json(group);
+    const mappedMembers = group.members.map(m => ({
+      ...m,
+      user: {
+        ...m.user,
+        name: m.customName || m.user.name
+      }
+    }));
+
+    const mappedPayments = group.payments.map(p => {
+      const membership = group.members.find(m => m.userId === p.userId);
+      return {
+        ...p,
+        user: {
+          ...p.user,
+          name: membership?.customName || p.user.name
+        }
+      };
+    });
+
+    const mappedAuctions = group.auctions.map(a => {
+      const mappedBids = a.bids.map(b => {
+        const membership = group.members.find(m => m.userId === b.userId);
+        return {
+          ...b,
+          user: {
+            ...b.user,
+            name: membership?.customName || b.user.name
+          }
+        };
+      });
+
+      if (a.winnerId) {
+        const membership = group.members.find(m => m.userId === a.winnerId);
+        return {
+          ...a,
+          winner: a.winner ? {
+            ...a.winner,
+            name: membership?.customName || a.winner.name
+          } : null,
+          bids: mappedBids
+        };
+      }
+      return {
+        ...a,
+        bids: mappedBids
+      };
+    });
+
+    const mappedGroup = {
+      ...group,
+      members: mappedMembers,
+      payments: mappedPayments,
+      auctions: mappedAuctions
+    };
+
+    return NextResponse.json(mappedGroup);
   } catch (error) {
     console.error("Fetch group error:", error);
     return NextResponse.json({ error: "Failed to fetch group details" }, { status: 500 });
