@@ -23,7 +23,6 @@ import {
   TrendingUp,
   Layers,
   Save,
-  Check,
   Download,
   MessageCircle,
   BarChart2,
