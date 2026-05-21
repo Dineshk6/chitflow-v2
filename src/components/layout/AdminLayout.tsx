@@ -6,7 +6,6 @@ import Navbar from './Navbar';
 import CalculatorWidget from '../admin/CalculatorWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
-
 import { useSession } from 'next-auth/react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -16,27 +15,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
-    // Only redirect if we are CERTAIN the user is logged out
     if (status === 'unauthenticated') {
       router.push('/auth/admin/login');
     }
   }, [status, router]);
 
-  // If loading, show nothing or a loader
   if (status === 'loading') {
-    return null;
+    return (
+      <div className="app-shell-bg min-h-screen flex">
+        <div className="hidden lg:block w-64 border-r border-slate-200 bg-white animate-pulse" />
+        <div className="flex-1 p-6 space-y-6">
+          <div className="h-14 bg-white rounded-xl border border-slate-200 animate-pulse" />
+          <div className="h-40 bg-white rounded-2xl border border-slate-200 animate-pulse" />
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 bg-white rounded-2xl border border-slate-200 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // If authenticated but wrong role, show an error instead of a silent redirect
   if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-6">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="text-slate-500">Your account does not have Agent permissions.</p>
-          <button 
+      <div className="app-shell-bg flex items-center justify-center min-h-screen p-6">
+        <div className="surface-card max-w-md w-full p-8 text-center space-y-4">
+          <h1 className="text-2xl font-black text-red-600">Access Denied</h1>
+          <p className="text-slate-600 text-sm">Your account does not have Agent permissions.</p>
+          <button
+            type="button"
             onClick={() => router.push('/auth/admin/login')}
-            className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold"
+            className="btn-primary w-full"
           >
             Switch Account
           </button>
@@ -46,19 +56,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-screen app-shell-bg">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-5 md:p-6 lg:p-7 overflow-y-auto overflow-x-hidden min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="max-w-7xl mx-auto w-full"
+              className="max-w-6xl xl:max-w-7xl mx-auto w-full min-w-0"
             >
               {children}
             </motion.div>

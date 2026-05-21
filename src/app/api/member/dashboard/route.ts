@@ -48,10 +48,10 @@ export async function GET(req: Request) {
           .filter((a: any) => a.winnerId === memberId)
           .map((a: any) => a.month);
 
-        const paidCount = payments.filter((p: any) => p.status === 'PAID').length;
-        const totalPaid = payments
-          .filter((p: any) => p.status === 'PAID')
-          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const paidPayments = payments.filter((p: { status: string }) => p.status === 'PAID');
+        const paidCount = new Set(paidPayments.map((p: { month: number }) => p.month)).size;
+        const totalPaid = paidPayments.reduce((sum: number, p: { amount?: number }) => sum + (p.amount || 0), 0);
+        const duration = membership.group.duration ?? 0;
 
         return {
           group: membership.group,
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
           myWins,
           paidCount,
           totalPaid,
-          pendingMonths: membership.group.duration - paidCount
+          pendingMonths: Math.max(0, duration - paidCount),
         };
       })
     );

@@ -35,6 +35,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
+import { GroupsCatalogSkeleton, PaymentsTableSkeleton } from '@/components/ui/Skeleton';
+import { AdminStatCard, AdminMetricCard } from '@/components/admin/AdminStatCard';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
@@ -502,7 +505,7 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <PageWrapper>
-        <div className="space-y-8 pb-12">
+        <div className="space-y-5 sm:space-y-6 pb-8 sm:pb-10 min-w-0">
 
           {/* ---------------- GROUP CATALOG WORKSPACE (No group selected) ---------------- */}
           <AnimatePresence mode="wait">
@@ -515,145 +518,115 @@ export default function Dashboard() {
                 className="space-y-8"
               >
                 {/* Catalog Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div>
-                    <h1 className="text-4xl font-black text-slate-900 dark:text-white leading-tight">
-                      Agent Control Hub
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
-                      Create, edit and manage multiple Chit groups. Track member contribution cycles.
-                    </p>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="surface-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-1">Agent workspace</p>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">Groups &amp; Payments</h1>
+                    <p className="text-slate-600 mt-1 text-sm">Create groups, track payments, and message members.</p>
                   </div>
-
-                  <button
-                    onClick={openCreateGroupModal}
-                    className="bg-blue-600 hover:bg-blue-700 text-white h-12 px-6 rounded-2xl font-bold flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-blue-500/25 active:scale-[0.98] self-start md:self-auto"
-                  >
-                    <Plus size={20} />
-                    Create New Group
+                  <button type="button" onClick={openCreateGroupModal} className="btn-primary w-full sm:w-auto shrink-0">
+                    <Plus size={18} />
+                    New group
                   </button>
-                </div>
+                </motion.div>
 
                 {/* --- Global Analytics Cards --- */}
                 {!isLoadingGroups && groups.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-5 rounded-3xl text-white shadow-lg shadow-blue-500/20 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Layers size={22} /></div>
-                      <div><p className="text-[10px] font-black uppercase tracking-widest text-blue-200">Total Groups</p><p className="text-3xl font-black">{globalStats.totalGroups}</p></div>
-                    </div>
-                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-5 rounded-3xl text-white shadow-lg shadow-indigo-500/20 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Users size={22} /></div>
-                      <div><p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Total Members</p><p className="text-3xl font-black">{globalStats.totalMembers}</p></div>
-                    </div>
-                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 rounded-3xl text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><IndianRupee size={22} /></div>
-                      <div><p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Funds Managed</p><p className="text-xl sm:text-2xl font-black truncate">{formatCurrency(globalStats.totalFunds)}</p></div>
-                    </div>
-                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 rounded-3xl text-white shadow-lg shadow-amber-500/20 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0"><Percent size={22} /></div>
-                      <div><p className="text-[10px] font-black uppercase tracking-widest text-amber-200">Roster Fill Rate</p><p className="text-3xl font-black">{globalStats.fillRate}%</p></div>
-                    </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <AdminStatCard label="Total groups" value={globalStats.totalGroups} icon={Layers} tone="blue" delay={0.05} />
+                    <AdminStatCard label="Total members" value={globalStats.totalMembers} icon={Users} tone="indigo" delay={0.1} />
+                    <AdminStatCard label="Funds managed" value={formatCurrency(globalStats.totalFunds)} icon={IndianRupee} tone="blue" delay={0.15} />
+                    <AdminStatCard label="Fill rate" value={`${globalStats.fillRate}%`} icon={Percent} tone="indigo" delay={0.2} />
                   </div>
                 )}
 
                 {/* Groups Grid */}
                 {isLoadingGroups ? (
-                  <div className="py-24 text-center">
-                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading Groups Directory...</p>
-                  </div>
+                  <GroupsCatalogSkeleton />
                 ) : groups.length === 0 ? (
-                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-20 text-center space-y-4">
-                    <Layers size={48} className="text-slate-400 mx-auto" />
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">No active Chit groups</h3>
+                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 sm:p-16 text-center space-y-4 bg-white">
+                    <Layers size={44} className="text-slate-300 mx-auto" />
+                    <h3 className="text-lg font-bold text-slate-800">No active chit groups</h3>
                     <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
                       You haven't created any groups yet. Click the button above to launch your first Chit Fund group.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {groups.map((group) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {groups.map((group, idx) => (
                       <motion.div
                         key={group.id}
-                        whileHover={{ y: -5 }}
-                        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-[32px] p-6 shadow-sm flex flex-col justify-between group relative overflow-hidden"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.08 + idx * 0.04 }}
+                        whileHover={{ y: -3 }}
+                        className="surface-card !rounded-2xl overflow-hidden flex flex-col"
                       >
-                        {/* Interactive glow effect */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl group-hover:scale-150 transition-all duration-500" />
-
-                        <div>
-                          <div className="flex justify-between items-start gap-4">
-                            <span className="inline-flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
-                              <Layers size={22} />
-                            </span>
-
-                            <div className="flex items-center gap-1.5 relative z-10">
+                        <div className="p-4 sm:p-5 flex-1">
+                          <div className="flex items-start justify-between gap-2 mb-4">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="w-11 h-11 rounded-xl gradient-blue flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+                                <Layers size={20} />
+                              </div>
+                              <ChevronRight size={18} className="text-slate-300 shrink-0" />
+                            </div>
+                            <div className="flex gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
                                   openEditGroupModal(group);
                                 }}
-                                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400 transition-all cursor-pointer"
-                                title="Edit Group"
+                                className="p-2 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
+                                title="Edit"
                               >
-                                <Edit3 size={16} />
+                                <Edit3 size={15} />
                               </button>
                               <button
                                 type="button"
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
                                   setGroupToDelete(group);
                                 }}
-                                className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-all cursor-pointer"
-                                title="Delete Group"
+                                className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                                title="Delete"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </div>
-
-                          <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-4 line-clamp-1">{group.name}</h3>
-
-                          <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-slate-100 dark:border-slate-800">
+                          <h3 className="text-lg font-black text-slate-900 line-clamp-2 leading-snug">{group.name}</h3>
+                          <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100 text-sm">
                             <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Value</p>
-                              <p className="text-base font-black text-slate-800 dark:text-slate-200 mt-0.5">
-                                {formatCurrency(group.totalAmount)}
-                              </p>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase">Pool</p>
+                              <p className="font-bold text-slate-900">{formatCurrency(group.totalAmount)}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Due</p>
-                              <p className="text-base font-black text-slate-800 dark:text-slate-200 mt-0.5">
-                                {formatCurrency(group.monthlyContribution)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 mt-4">
-                            <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</p>
-                              <p className="text-sm font-bold text-slate-600 dark:text-slate-400 mt-0.5">
-                                {group.duration} Months
-                              </p>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase">Monthly</p>
+                              <p className="font-bold text-slate-900">{formatCurrency(group.monthlyContribution)}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Members</p>
-                              <p className="text-sm font-bold text-slate-600 dark:text-slate-400 mt-0.5">
-                                {group._count?.members || 0} / {group.membersLimit} Enrolled
+                              <p className="text-[10px] font-bold text-slate-500 uppercase">Duration</p>
+                              <p className="font-semibold text-slate-700">{group.duration} mo</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase">Members</p>
+                              <p className="font-semibold text-slate-700">
+                                {group._count?.members || 0}/{group.membersLimit}
                               </p>
                             </div>
                           </div>
                         </div>
-
                         <button
+                          type="button"
                           onClick={() => setSelectedGroup(group)}
-                          className="w-full mt-6 h-11 bg-slate-50 hover:bg-blue-600 dark:bg-slate-900/60 dark:hover:bg-blue-600 text-slate-700 hover:text-white dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 border border-slate-200/50 dark:border-slate-800/80 hover:border-transparent transition-all active:scale-[0.98]"
+                          className="w-full py-3.5 bg-slate-50 hover:bg-blue-600 text-slate-700 hover:text-white font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 border-t border-slate-100 transition-all duration-200"
                         >
-                          Manage Group
-                          <ChevronRight size={16} />
+                          Manage group
                         </button>
                       </motion.div>
                     ))}
@@ -668,193 +641,144 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
-                className="space-y-8"
+                className="space-y-5 sm:space-y-6 min-w-0"
               >
-                {/* Navigation Back Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2 border-b border-slate-200/60 dark:border-slate-800/80">
-                  <div className="space-y-1.5">
-                    <button
-                      onClick={() => setSelectedGroup(null)}
-                      className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors"
-                    >
-                      <ArrowLeft size={14} /> Back to groups catalog
-                    </button>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                      {selectedGroup.name}
-                    </h1>
-                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                      <span>Total: {formatCurrency(selectedGroup.totalAmount)}</span>
-                      <span className="w-1.5 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-                      <span>Monthly Due: {formatCurrency(selectedGroup.monthlyContribution)}</span>
-                      <span className="w-1.5 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-                      <span>Duration: {selectedGroup.duration} Months</span>
+                <div className="surface-card p-4 sm:p-5 space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGroup(null)}
+                    className="inline-flex items-center gap-2 pl-1 pr-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all group"
+                  >
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <ArrowLeft size={14} />
+                    </span>
+                    Back to groups
+                  </button>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0 flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-xl gradient-blue flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20">
+                        <Layers size={22} />
+                      </div>
+                      <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight truncate">
+                          {selectedGroup.name}
+                        </h1>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 font-medium mt-1">
+                          <span>{formatCurrency(selectedGroup.totalAmount)} pool</span>
+                          <span>·</span>
+                          <span>{formatCurrency(selectedGroup.monthlyContribution)}/mo</span>
+                          <span>·</span>
+                          <span>{selectedGroup.duration} months</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Tab Switching Selector */}
-                  <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 self-start md:self-auto">
-                    <button
-                      onClick={() => setActiveTab('payments')}
-                      className={cn(
-                        "px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all",
-                        activeTab === 'payments'
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                      )}
-                    >
-                      Payments Tracker
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('members')}
-                      className={cn(
-                        "px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all",
-                        activeTab === 'members'
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                      )}
-                    >
-                      Members list
-                    </button>
+                    <div className="flex w-full sm:w-auto p-1 bg-slate-100 rounded-xl border border-slate-200">
+                      {(['payments', 'members'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setActiveTab(tab)}
+                          className={cn(
+                            'flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-200',
+                            activeTab === tab
+                              ? 'bg-white text-blue-700 shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800'
+                          )}
+                        >
+                          {tab === 'payments' ? 'Payments' : 'Members'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* ---------------- PAYMENTS TRACKER TAB ---------------- */}
                 {activeTab === 'payments' && (
-                  <div className="space-y-8 animate-fadeIn">
+                  <div className="space-y-4 sm:space-y-5">
 
-                    {/* Month selector and metrics summary */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="flex flex-wrap items-center gap-6">
-                        {/* Active Cycle Selector */}
-                        <div className="flex items-center gap-3">
-                          <Calendar size={20} className="text-blue-500" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Active Cycle:</span>
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
-                            <select
-                              value={selectedMonth}
-                              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                              className="bg-transparent border-none text-xs font-black text-slate-800 dark:text-slate-200 focus:ring-0 cursor-pointer pr-8 uppercase tracking-wider"
-                            >
-                              {Array.from({ length: selectedGroup.duration }, (_, i) => i + 1).map(m => (
-                                <option key={m} value={m} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
-                                  Month {m}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                    <div className="surface-card p-4 sm:p-5 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                            <Calendar size={16} className="text-blue-600" /> Active month
+                          </span>
+                          <CustomSelect
+                            value={String(selectedMonth)}
+                            onChange={(val) => setSelectedMonth(Number(val))}
+                            options={Array.from({ length: selectedGroup.duration }, (_, i) => ({
+                              value: String(i + 1),
+                              label: `Month ${i + 1}`,
+                            }))}
+                          />
                         </div>
-
-                        {/* Chit Lift Selector */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <TrendingUp size={20} className="text-amber-500" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Chit Lifted By:</span>
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 shadow-sm">
-                            <select
-                              value={selectedWinnerId}
-                              onChange={async (e) => {
-                                const winnerId = e.target.value;
-                                setSelectedWinnerId(winnerId);
-                                try {
-                                  const res = await fetch('/api/admin/customers', {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      groupId: selectedGroup.id,
-                                      month: selectedMonth,
-                                      winnerId: winnerId
-                                    })
-                                  });
-                                  if (res.ok) {
-                                    toast.success(winnerId === 'none' ? "Chit lift cleared successfully!" : "Chit lift winner updated successfully!");
-
-                                    if (winnerId !== 'none') {
-                                      const winner = members.find(m => m.id === winnerId);
-                                      if (winner) {
-                                        const liftAmount = selectedGroup?.liftedContribution || selectedGroup?.monthlyContribution;
-                                        const text = `Hi ${winner.name}, for this month and year (Month ${selectedMonth}, ${new Date().getFullYear()}) you have lifted the chit in "${selectedGroup?.totalAmount}". So please pay your upcoming contributions with the updated money (Rs. ${liftAmount}) as early as possible.`;
-                                        setWinnerMessageModal({ isOpen: true, winner, text });
-                                      }
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                            <TrendingUp size={16} className="text-amber-600" /> Chit lifted by
+                          </span>
+                          <CustomSelect
+                            value={selectedWinnerId}
+                            onChange={async (winnerId) => {
+                              setSelectedWinnerId(winnerId);
+                              try {
+                                const res = await fetch('/api/admin/customers', {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    groupId: selectedGroup.id,
+                                    month: selectedMonth,
+                                    winnerId,
+                                  }),
+                                });
+                                if (res.ok) {
+                                  toast.success(
+                                    winnerId === 'none'
+                                      ? 'Chit lift cleared successfully!'
+                                      : 'Chit lift winner updated successfully!'
+                                  );
+                                  if (winnerId !== 'none') {
+                                    const winner = members.find((m) => m.id === winnerId);
+                                    if (winner) {
+                                      const liftAmount =
+                                        selectedGroup?.liftedContribution ||
+                                        selectedGroup?.monthlyContribution;
+                                      const text = `Hi ${winner.name}, for this month and year (Month ${selectedMonth}, ${new Date().getFullYear()}) you have lifted the chit in "${selectedGroup?.totalAmount}". So please pay your upcoming contributions with the updated money (Rs. ${liftAmount}) as early as possible.`;
+                                      setWinnerMessageModal({ isOpen: true, winner, text });
                                     }
-
-                                    fetchGroupMembers(selectedGroup.id);
-                                  } else {
-                                    const errData = await res.json();
-                                    toast.error(errData.error || "Failed to update winner");
                                   }
-                                } catch (err) {
-                                  toast.error("Connection error");
+                                  fetchGroupMembers(selectedGroup.id);
+                                } else {
+                                  const errData = await res.json();
+                                  toast.error(errData.error || 'Failed to update winner');
                                 }
-                              }}
-                              className="bg-transparent border-none text-xs font-black text-slate-800 dark:text-slate-200 focus:ring-0 cursor-pointer pr-8 uppercase tracking-wider"
-                            >
-                              <option value="none" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Unclaimed / None</option>
-                              {members.map(m => (
-                                <option key={m.id} value={m.id} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
-                                  {m.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                              } catch {
+                                toast.error('Connection error');
+                              }
+                            }}
+                            options={[
+                              { value: 'none', label: 'Unclaimed / None' },
+                              ...members.map((m) => ({ value: m.id, label: m.name })),
+                            ]}
+                          />
                         </div>
                       </div>
-
-                      <div className="flex shrink-0 gap-2">
-
-                        <button
-                          onClick={exportToCSV}
-                          className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-emerald-200/50 dark:border-emerald-800/50"
-                        >
-                          <Download size={16} />
-                          Download Ledger
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={exportToCSV}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold uppercase tracking-wide transition-colors"
+                      >
+                        <Download size={16} />
+                        Download ledger
+                      </button>
+                      <p className="text-xs text-slate-500 sm:col-span-2">
+                        Lifted members use the updated contribution amount from the next cycle.
+                      </p>
                     </div>
 
-                    <div className="text-xs text-slate-400 font-bold italic">
-                      Note: Lifted members will be charged their updated lift amount from the next monthly cycle.
-                    </div>
-
-                    {/* Stats cards for active month */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner">
-                          <Users size={22} />
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enrolled Members</p>
-                          <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.totalMembers}</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner">
-                          <CheckCircle2 size={22} />
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Paid Members</p>
-                          <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.paidCount}</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/10 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner">
-                          <Clock size={22} />
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pending Members</p>
-                          <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.pendingCount}</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
-                          <IndianRupee size={22} />
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Collected (Month {selectedMonth})</p>
-                          <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{formatCurrency(stats.totalCollected)}</p>
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <AdminMetricCard label="Enrolled" value={stats.totalMembers} icon={Users} iconClassName="bg-blue-50 text-blue-600" delay={0.05} />
+                      <AdminMetricCard label="Paid" value={stats.paidCount} icon={CheckCircle2} iconClassName="bg-emerald-50 text-emerald-600" delay={0.1} />
+                      <AdminMetricCard label="Pending" value={stats.pendingCount} icon={Clock} iconClassName="bg-amber-50 text-amber-600" delay={0.15} />
+                      <AdminMetricCard label={`Collected M${selectedMonth}`} value={formatCurrency(stats.totalCollected)} icon={IndianRupee} iconClassName="bg-indigo-50 text-indigo-600" delay={0.2} />
                     </div>
 
                     {/* --- Dividend Auto-Calculator --- */}
@@ -903,24 +827,22 @@ export default function Dashboard() {
                       ) : null;
                     })()}
 
-                    {/* Member payments table - Desktop Only */}
-                    <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+                    <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[640px]">
                           <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-800/80">
-                              <th className="px-8 py-4.5 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Member details</th>
-                              <th className="px-8 py-4.5 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Chit Lifted</th>
-                              <th className="px-8 py-4.5 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Monthly due amount (₹)</th>
-                              <th className="px-8 py-4.5 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Payment Status</th>
+                            <tr className="border-b border-slate-100 bg-slate-50/80">
+                              <th className="px-4 lg:px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Member</th>
+                              <th className="px-4 lg:px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Chit lifted</th>
+                              <th className="px-4 lg:px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Due (₹)</th>
+                              <th className="px-4 lg:px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                          <tbody className="divide-y divide-slate-100">
                             {isLoadingMembers ? (
                               <tr>
-                                <td colSpan={4} className="py-20 text-center">
-                                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
-                                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syncing members data...</p>
+                                <td colSpan={4} className="p-4">
+                                  <PaymentsTableSkeleton rows={4} />
                                 </td>
                               </tr>
                             ) : filteredMembers.length === 0 ? (
@@ -935,8 +857,8 @@ export default function Dashboard() {
                               const isEditingAmount = editingAmountUserId === member.id;
 
                               return (
-                                <tr key={member.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                                  <td className="px-8 py-4.5">
+                                <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 lg:px-6 py-3">
                                     <div className="flex items-center gap-3">
                                       <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-black flex items-center justify-center">
                                         {member.name.charAt(0).toUpperCase()}
@@ -947,7 +869,7 @@ export default function Dashboard() {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-8 py-4.5">
+                                  <td className="px-4 lg:px-6 py-3">
                                     {member.liftedMonths && member.liftedMonths.length > 0 ? (
                                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/20">
                                         🏆 Month {member.liftedMonths.join(', ')}
@@ -956,7 +878,7 @@ export default function Dashboard() {
                                       <span className="text-xs text-slate-400 font-bold">-</span>
                                     )}
                                   </td>
-                                  <td className="px-8 py-4.5">
+                                  <td className="px-4 lg:px-6 py-3">
                                     <div className="flex items-center gap-2.5">
                                       {(() => {
                                         const dbValue = payment?.amount || selectedGroup.monthlyContribution;
@@ -976,6 +898,7 @@ export default function Dashboard() {
                                                   ...customAmounts,
                                                   [member.id]: e.target.value
                                                 })}
+                                                onBlur={() => handleSaveCustomAmount(member.id)}
                                                 placeholder={selectedGroup.monthlyContribution.toString()}
                                                 className={cn(
                                                   "w-32 h-10 pl-7 pr-3 rounded-xl border text-xs font-black transition-all focus:outline-none focus:ring-2",
@@ -988,18 +911,7 @@ export default function Dashboard() {
                                               />
                                             </div>
 
-                                            <button
-                                              onClick={() => handleSaveCustomAmount(member.id)}
-                                              className={cn(
-                                                "p-2.5 rounded-xl transition-all flex items-center justify-center shadow-sm active:scale-95 border",
-                                                isChanged
-                                                  ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse"
-                                                  : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                              )}
-                                              title={isChanged ? "Click to Save Changes" : "Amount Saved"}
-                                            >
-                                              <Check size={14} className={isChanged ? "stroke-[3px]" : ""} />
-                                            </button>
+
 
                                             {isWinner && (
                                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/20 animate-pulse">
@@ -1019,7 +931,7 @@ export default function Dashboard() {
                                       })()}
                                     </div>
                                   </td>
-                                  <td className="px-8 py-4.5">
+                                  <td className="px-4 lg:px-6 py-3">
                                     <div className="flex items-center gap-3">
                                       <span className={cn(
                                         "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
@@ -1064,13 +976,9 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Mobile-friendly card list (visible on small screens) */}
-                    <div className="grid grid-cols-1 gap-4 md:hidden">
+                    <div className="grid grid-cols-1 gap-3 lg:hidden">
                       {isLoadingMembers ? (
-                        <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800">
-                          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Syncing members data...</p>
-                        </div>
+                        <PaymentsTableSkeleton rows={5} />
                       ) : filteredMembers.length === 0 ? (
                         <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800">
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider italic">No members in this group yet</p>
@@ -1149,6 +1057,7 @@ export default function Dashboard() {
                                         ...customAmounts,
                                         [member.id]: e.target.value
                                       })}
+                                      onBlur={() => handleSaveCustomAmount(member.id)}
                                       placeholder={selectedGroup.monthlyContribution.toString()}
                                       className={cn(
                                         "w-full h-10 pl-7 pr-3 rounded-xl border text-xs font-black transition-all focus:outline-none focus:ring-2",
@@ -1163,19 +1072,6 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="flex items-end gap-2 h-16 pt-5">
-                                  <button
-                                    onClick={() => handleSaveCustomAmount(member.id)}
-                                    className={cn(
-                                      "h-10 px-3.5 rounded-xl transition-all flex items-center justify-center shadow-sm active:scale-95 border",
-                                      isChanged
-                                        ? "bg-emerald-500 border-emerald-400 hover:bg-emerald-600 text-white animate-pulse"
-                                        : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                    )}
-                                    title={isChanged ? "Save Custom Amount" : "Amount Saved"}
-                                  >
-                                    <Check size={16} className={isChanged ? "stroke-[3px]" : ""} />
-                                  </button>
-
                                   <button
                                     onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING')}
                                     className={cn(
@@ -1240,9 +1136,10 @@ export default function Dashboard() {
 
                     {/* Members List Cards */}
                     {isLoadingMembers ? (
-                      <div className="py-20 text-center">
-                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syncing Enrolments...</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <div key={i} className="h-36 rounded-3xl bg-white border border-slate-200" />
+                        ))}
                       </div>
                     ) : filteredMembers.length === 0 ? (
                       <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-16 text-center space-y-3">
@@ -1311,7 +1208,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-2xl border border-slate-200 dark:border-slate-800"
+              className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-200 mx-2"
             >
               <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-none mb-6">
                 {editingGroup ? "Edit Chit Group" : "Create Chit Group"}
@@ -1343,7 +1240,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly Contribution *</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly Pay *</label>
                     <input
                       type="number"
                       value={groupFormData.monthlyContribution}

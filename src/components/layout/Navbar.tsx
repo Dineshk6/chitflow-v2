@@ -102,29 +102,30 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b border-indigo-900/30 px-3 sm:px-6 transition-all duration-300 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white',
-        isScrolled && 'shadow-lg shadow-slate-900/20'
+        'sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b px-3 sm:px-6 transition-all duration-300 bg-white/90 backdrop-blur-xl border-slate-200/80 text-slate-900',
+        isScrolled && 'shadow-md shadow-blue-500/5'
       )}
     >
       <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
         <button
           type="button"
           onClick={onMenuClick}
-          className="p-2 -ml-1 rounded-xl text-slate-300 hover:bg-white/10 lg:hidden shrink-0"
+          className="p-2 -ml-1 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-700 lg:hidden shrink-0"
           aria-label="Open menu"
         >
           <Menu size={20} />
         </button>
 
-        <div className="relative w-full max-w-md hidden lg:block group min-w-0">
+        <p className="lg:hidden text-sm font-bold text-slate-800 truncate">Agent dashboard</p>
+        <div className="relative w-full max-w-md hidden md:block group min-w-0">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
             size={18}
           />
           <input
             type="text"
-            placeholder="Search groups, customers..."
-            className="w-full h-10 sm:h-11 pl-10 pr-4 rounded-xl border border-white/10 bg-white/10 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/50 transition-all text-sm"
+            placeholder="Search groups, members..."
+            className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm"
           />
         </div>
       </div>
@@ -133,13 +134,13 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         <button
           type="button"
           onClick={() => setIsNotifOpen((open) => !open)}
-          className="relative p-2 sm:p-2.5 rounded-xl text-slate-200 hover:bg-white/10 border border-white/10 transition-all"
+          className="relative p-2 sm:p-2.5 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-700 border border-slate-200/80 transition-all"
           aria-label="Messages"
           aria-expanded={isNotifOpen}
         >
           <Bell size={18} className="sm:w-5 sm:h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] px-1 bg-blue-500 text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-slate-900">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] px-1 bg-blue-600 text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

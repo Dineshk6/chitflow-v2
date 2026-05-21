@@ -4,12 +4,43 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
-  CheckCircle2, Clock, Trophy, Layers, IndianRupee,
-  LogOut, Phone, ChevronDown, ChevronUp, Loader2,
-  TrendingUp, Shield, User, Bell, Send, MessageCircle, Inbox, X
+  CheckCircle2,
+  Clock,
+  Trophy,
+  Layers,
+  IndianRupee,
+  LogOut,
+  Phone,
+  ChevronRight,
+  Loader2,
+  TrendingUp,
+  Shield,
+  User,
+  Bell,
+  Send,
+  MessageCircle,
+  Inbox,
+  X,
+  Menu,
 } from 'lucide-react';
 import { formatCurrency, cn, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
+import { clearAllAuthSessions } from '@/lib/auth-client';
+import { MemberDashboardSkeleton } from '@/components/ui/Skeleton';
+
+const springSmooth = { type: 'spring' as const, stiffness: 400, damping: 34 };
+
+function getPaidCount(gd: {
+  paidCount?: number;
+  payments?: { status: string; month: number }[];
+}) {
+  if (typeof gd.paidCount === 'number') return gd.paidCount;
+  return new Set(
+    (gd.payments ?? [])
+      .filter((p) => p.status === 'PAID')
+      .map((p) => p.month)
+  ).size;
+}
 
 export default function MemberDashboard() {
   const router = useRouter();
@@ -23,39 +54,31 @@ export default function MemberDashboard() {
   const [memberMessage, setMemberMessage] = useState('');
   const [messageGroupId, setMessageGroupId] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const notifContainerRef = useRef<HTMLDivElement>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const groupsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('memberSession');
-    if (!stored) { router.replace('/auth/member/login'); return; }
+    if (!stored) {
+      router.replace('/auth/member/login');
+      return;
+    }
     const parsed = JSON.parse(stored);
     setSession(parsed);
     fetchDashboard(parsed.memberId);
     fetchNotifications(parsed.memberId);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!isNotifOpen) return;
-
-    const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node;
-      if (notifContainerRef.current && !notifContainerRef.current.contains(target)) {
-        setIsNotifOpen(false);
-      }
-    };
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsNotifOpen(false);
     };
-
     document.body.style.overflow = 'hidden';
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = '';
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [isNotifOpen]);
@@ -157,412 +180,648 @@ export default function MemberDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('memberSession');
+  const handleLogout = async () => {
+    await clearAllAuthSessions();
     router.push('/auth/member/login');
   };
 
-  // Global totals
-  const totalPaid = groupData.reduce((s, g) => s + g.totalPaid, 0);
-  const totalWins = groupData.reduce((s, g) => s + g.myWins.length, 0);
-  const totalPending = groupData.reduce((s, g) => s + g.pendingMonths, 0);
+  const totalPaid = groupData.reduce((s, g) => s + (g.totalPaid || 0), 0);
+  const totalWins = groupData.reduce((s, g) => s + (g.myWins?.length || 0), 0);
+  const totalPending = groupData.reduce((s, g) => s + (g.pendingMonths || 0), 0);
+
+  const scrollToGroups = () => {
+    setMobileNavOpen(false);
+    groupsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const messagesPanel = isNotifOpen ? (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-slate-900/25 backdrop-blur-[2px] z-[60]"
+        onClick={() => setIsNotifOpen(false)}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.96 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        className={cn(
+          'fixed z-[70] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden',
+          'left-3 right-3 top-[4.5rem] max-h-[min(32rem,calc(100dvh-5.5rem))]',
+          'sm:left-auto sm:right-6 sm:w-[22rem] lg:right-8 lg:top-24'
+        )}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+            <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-100 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={16} className="text-blue-600" />
+                  <span className="text-xs font-black text-slate-900">Messages</span>
+                  {unreadNotifCount > 0 && (
+                    <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
+                      {unreadNotifCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {notifications.length > 0 && messageTab === 'inbox' && (
+                    <button
+                      type="button"
+                      onClick={clearAllMessages}
+                      className="text-[10px] font-bold text-red-500 hover:underline"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsNotifOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    aria-label="Close"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-1 mt-3 p-0.5 bg-slate-100 rounded-lg">
+                {(['inbox', 'send'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setMessageTab(tab)}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-all duration-200',
+                      messageTab === tab ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    )}
+                  >
+                    {tab === 'inbox' ? <Inbox size={12} /> : <Send size={12} />}
+                    {tab === 'inbox' ? 'Inbox' : 'Send'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {messageTab === 'inbox' ? (
+              <div className="flex-1 overflow-y-auto min-h-[12rem] max-h-64">
+                {notifications.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <Inbox size={28} className="text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-500">No messages from agent yet</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => markNotifRead(n.id, session?.memberId)}
+                      className={cn(
+                        'w-full px-4 py-3.5 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors duration-200',
+                        !n.read && 'bg-blue-50 border-l-2 border-l-blue-500'
+                      )}
+                    >
+                      <p className="text-xs font-bold text-slate-900">{n.title}</p>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-snug">{n.message}</p>
+                      <p className="text-[9px] text-slate-400 mt-1.5 font-bold">{formatTimeAgo(n.createdAt)}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="p-4 space-y-3 shrink-0">
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Send a message to your agent. They will see it in their Messages center.
+                </p>
+                {groupData.length > 1 && (
+                  <select
+                    value={messageGroupId}
+                    onChange={(e) => setMessageGroupId(e.target.value)}
+                    className="w-full h-9 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">All my groups</option>
+                    {groupData.map((gd) => (
+                      <option key={gd.group.id} value={gd.group.id}>
+                        {gd.group.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <textarea
+                  value={memberMessage}
+                  onChange={(e) => setMemberMessage(e.target.value)}
+                  placeholder="e.g. I paid May contribution via PhonePe..."
+                  rows={4}
+                  className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 resize-none"
+                />
+                <button
+                  type="button"
+                  onClick={sendMessageToAgent}
+                  disabled={isSendingMessage || !memberMessage.trim()}
+                  className="w-full h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all"
+                >
+                  {isSendingMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Send message
+                </button>
+              </div>
+            )}
+      </motion.div>
+    </>
+  ) : null;
+
+  const SidebarInner = ({ onNavClick }: { onNavClick?: () => void }) => (
+    <>
+      <div
+        className={cn(
+          'flex-shrink-0 border-b border-slate-100 bg-gradient-to-b from-blue-50/50 to-white',
+          sidebarCollapsed ? 'flex flex-col items-center gap-2 py-4 px-2' : 'flex items-center gap-2 p-4'
+        )}
+      >
+        <motion.div
+          layout
+          className={cn(
+            'rounded-xl gradient-blue flex items-center justify-center text-white font-black shadow-md shadow-blue-500/25 shrink-0',
+            sidebarCollapsed ? 'w-11 h-11 text-lg' : 'w-10 h-10 text-base'
+          )}
+        >
+          C
+        </motion.div>
+
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((c) => !c)}
+          className={cn(
+            'rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center shrink-0',
+            sidebarCollapsed ? 'w-9 h-9' : 'w-8 h-8'
+          )}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <motion.span animate={{ rotate: sidebarCollapsed ? 0 : 180 }} transition={springSmooth}>
+            <ChevronRight size={18} />
+          </motion.span>
+        </button>
+
+        <AnimatePresence mode="wait">
+          {!sidebarCollapsed && (
+            <motion.div
+              key="brand-text"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2 }}
+              className="min-w-0 flex-1 overflow-hidden"
+            >
+              <p className="font-black text-slate-900 text-sm leading-tight truncate">ChitFlow</p>
+              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">Member</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <nav className={cn('flex-1 py-4 space-y-1', sidebarCollapsed ? 'px-2' : 'px-3')}>
+        <button
+          type="button"
+          onClick={() => {
+            scrollToGroups();
+            onNavClick?.();
+          }}
+          className={cn(
+            'w-full flex items-center rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold text-sm transition-all duration-200',
+            sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3'
+          )}
+          title={sidebarCollapsed ? 'My groups' : undefined}
+        >
+          <Layers size={20} className="text-blue-600 shrink-0" />
+          {!sidebarCollapsed && <span>My groups</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsNotifOpen(true);
+            onNavClick?.();
+          }}
+          className={cn(
+            'w-full flex items-center rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold text-sm transition-all duration-200 relative',
+            sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3'
+          )}
+          title={sidebarCollapsed ? 'Messages' : undefined}
+        >
+          <Bell size={20} className="text-blue-600 shrink-0" />
+          {!sidebarCollapsed && <span>Messages</span>}
+          {unreadNotifCount > 0 && (
+            <span
+              className={cn(
+                'bg-blue-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 flex items-center justify-center px-1',
+                sidebarCollapsed ? 'absolute -top-0.5 -right-0.5' : 'ml-auto'
+              )}
+            >
+              {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+            </span>
+          )}
+        </button>
+      </nav>
+
+      <div className={cn('flex-shrink-0 border-t border-slate-100 p-3 space-y-2', sidebarCollapsed && 'px-2')}>
+        <div
+          className={cn(
+            'flex items-center rounded-xl bg-slate-50 border border-slate-100',
+            sidebarCollapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
+          )}
+          title={sidebarCollapsed ? session?.name : undefined}
+        >
+          <div className="w-9 h-9 rounded-full gradient-blue flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+            {session?.name?.charAt(0)?.toUpperCase() || 'M'}
+          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-900 truncate">{session?.name}</p>
+              <p className="text-[10px] text-slate-500 truncate">{session?.phone}</p>
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={cn(
+            'w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-semibold',
+            'hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all duration-200',
+            sidebarCollapsed ? 'p-3' : 'px-4 py-2.5'
+          )}
+          title={sidebarCollapsed ? 'Sign out' : undefined}
+        >
+          <LogOut size={16} />
+          {!sidebarCollapsed && <span>Sign out</span>}
+        </button>
+      </div>
+    </>
+  );
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center font-black text-3xl text-white mx-auto animate-pulse">C</div>
-          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Loading your portal...</p>
-        </div>
-      </div>
-    );
+    return <MemberDashboardSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="member-portal-bg min-h-screen flex">
+      {/* Desktop sidebar */}
+      <motion.aside
+        initial={false}
+        animate={{ width: sidebarCollapsed ? 84 : 256 }}
+        transition={springSmooth}
+        className="hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200/80 shadow-sm overflow-hidden z-30"
+      >
+        <SidebarInner />
+      </motion.aside>
 
-      {/* ---- Sticky Header ---- */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center font-black text-lg text-white">C</div>
-            <div className="hidden sm:block">
-              <p className="font-black text-white text-sm leading-tight">ChitFlow</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Member Portal</p>
-            </div>
-          </div>
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileNavOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
+              onClick={() => setMobileNavOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={springSmooth}
+              className="fixed inset-y-0 left-0 w-64 z-50 lg:hidden bg-white border-r border-slate-200 shadow-2xl flex flex-col"
+            >
+              <SidebarInner onNavClick={() => setMobileNavOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-          <div className="flex items-center gap-1.5 sm:gap-4 min-w-0 shrink">
-            <div className="relative" ref={notifContainerRef}>
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top bar — mobile / tablet */}
+        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-sm lg:shadow-none">
+          <div className="max-w-3xl xl:max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 lg:hidden">
               <button
                 type="button"
-                onClick={() => setIsNotifOpen((open) => !open)}
-                className="relative p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all shrink-0"
-                aria-label="Messages"
-                aria-expanded={isNotifOpen}
+                onClick={() => setMobileNavOpen(true)}
+                className="p-2 rounded-xl text-slate-600 hover:bg-blue-50"
+                aria-label="Open menu"
               >
-                <Bell size={16} className="text-slate-300" />
+                <Menu size={20} />
+              </button>
+              <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-sm">
+                C
+              </div>
+              <span className="font-black text-slate-900 text-sm">ChitFlow</span>
+            </div>
+
+            <p className="hidden lg:block text-sm font-bold text-slate-600 truncate flex-1">
+              Hi, <span className="text-slate-900">{session?.name}</span>
+            </p>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="relative hidden sm:block">
+                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
+                <span className="pl-8 pr-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                  {session?.phone}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNotifOpen((o) => !o)}
+                className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all duration-200 lg:hidden"
+                aria-label="Messages"
+              >
+                <Bell size={18} className="text-slate-600" />
                 {unreadNotifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-emerald-500 text-[8px] font-black text-white rounded-full flex items-center justify-center border border-slate-950">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-blue-600 text-[9px] font-black text-white rounded-full flex items-center justify-center border-2 border-white">
                     {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                   </span>
                 )}
               </button>
-              {isNotifOpen && (
-                <>
-                  <div className="fixed inset-0 bg-black/50 z-40 sm:hidden" aria-hidden />
-                  <div
-                    className={cn(
-                      'z-50 flex flex-col bg-slate-900 border border-emerald-500/20 rounded-2xl shadow-2xl shadow-emerald-900/30 overflow-hidden',
-                      'fixed left-3 right-3 top-[3.5rem] max-h-[min(32rem,calc(100dvh-4.5rem))]',
-                      'sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))] sm:max-h-[min(28rem,70dvh)]'
-                    )}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <div className="px-4 py-3 bg-gradient-to-r from-emerald-600/20 to-teal-600/10 border-b border-white/10 shrink-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MessageCircle size={16} className="text-emerald-400" />
-                          <span className="text-xs font-black text-white">Messages</span>
-                          {unreadNotifCount > 0 && (
-                            <span className="text-[10px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
-                              {unreadNotifCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {notifications.length > 0 && messageTab === 'inbox' && (
-                            <button
-                              type="button"
-                              onClick={clearAllMessages}
-                              className="text-[10px] font-bold text-red-400 hover:underline"
-                            >
-                              Clear all
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setIsNotifOpen(false)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-                            aria-label="Close messages"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex gap-1 mt-3 p-0.5 bg-black/20 rounded-lg">
-                        <button
-                          onClick={() => setMessageTab('inbox')}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-all',
-                            messageTab === 'inbox' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                          )}
-                        >
-                          <Inbox size={12} /> Inbox
-                        </button>
-                        <button
-                          onClick={() => setMessageTab('send')}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-all',
-                            messageTab === 'send' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                          )}
-                        >
-                          <Send size={12} /> Send
-                        </button>
-                      </div>
-                    </div>
-
-                    {messageTab === 'inbox' ? (
-                      <div className="flex-1 overflow-y-auto min-h-[12rem] max-h-64">
-                        {notifications.length === 0 ? (
-                          <div className="p-10 text-center">
-                            <Inbox size={28} className="text-slate-600 mx-auto mb-2" />
-                            <p className="text-xs font-bold text-slate-500">No messages from agent yet</p>
-                          </div>
-                        ) : (
-                          notifications.map((n) => (
-                            <button
-                              key={n.id}
-                              onClick={() => markNotifRead(n.id, session?.memberId)}
-                              className={cn(
-                                'w-full px-4 py-3.5 text-left border-b border-white/5 hover:bg-white/5 transition-colors',
-                                !n.read && 'bg-emerald-500/10 border-l-2 border-l-emerald-500'
-                              )}
-                            >
-                              <p className="text-xs font-bold text-white">{n.title}</p>
-                              <p className="text-[11px] text-slate-400 mt-1 leading-snug">{n.message}</p>
-                              <p className="text-[9px] text-slate-600 mt-1.5 font-bold">{formatTimeAgo(n.createdAt)}</p>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 space-y-3 shrink-0">
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
-                          Send a message to your agent. They will see it in their Messages center.
-                        </p>
-                        {groupData.length > 1 && (
-                          <select
-                            value={messageGroupId}
-                            onChange={(e) => setMessageGroupId(e.target.value)}
-                            className="w-full h-9 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-200 px-2 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
-                          >
-                            <option value="">All my groups</option>
-                            {groupData.map((gd) => (
-                              <option key={gd.group.id} value={gd.group.id}>
-                                {gd.group.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <textarea
-                          value={memberMessage}
-                          onChange={(e) => setMemberMessage(e.target.value)}
-                          placeholder="e.g. I paid May contribution via PhonePe..."
-                          rows={4}
-                          className="w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
-                        />
-                        <button
-                          onClick={sendMessageToAgent}
-                          disabled={isSendingMessage || !memberMessage.trim()}
-                          className="w-full h-10 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/40"
-                        >
-                          {isSendingMessage ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Send size={16} />
-                          )}
-                          Send message
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
-            <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-2 sm:px-3 py-1.5 max-w-[140px] md:max-w-none">
-              <Phone size={12} className="text-emerald-400 shrink-0" />
-              <span className="text-[10px] sm:text-xs font-bold text-slate-300 truncate">{session?.phone}</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 px-2 sm:px-3 py-1.5 rounded-full transition-all shrink-0"
-            >
-              <LogOut size={13} />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* ---- Background orbs ---- */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-600/10 rounded-full blur-[150px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 rounded-full blur-[150px]" />
-      </div>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 relative z-10">
-
-        {/* ---- Welcome Banner ---- */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-600/30 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <User size={26} className="text-emerald-400" />
+        <main className="flex-1 max-w-3xl xl:max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+          {/* Welcome */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="surface-card p-5 sm:p-6 !rounded-2xl flex items-center gap-4"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-100 flex items-center justify-center shrink-0">
+              <User size={28} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-slate-400 text-sm font-medium">Welcome back</p>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight">{session?.name}</h1>
+              <p className="text-slate-500 text-sm">Welcome back</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">{session?.name}</h1>
+              <p className="text-xs text-blue-600 font-semibold mt-0.5">Your chit groups at a glance</p>
             </div>
-          </div>
-        </motion.div>
+          </motion.section>
 
-        {/* ---- Global Stats ---- */}
-        {groupData.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-          >
-            {[
-              { label: 'Groups', value: groupData.length, icon: <Layers size={18} />, color: 'blue' },
-              { label: 'Total Paid', value: formatCurrency(totalPaid), icon: <IndianRupee size={18} />, color: 'emerald', small: true },
-              { label: 'Chit Lifts', value: totalWins, icon: <Trophy size={18} />, color: 'amber' },
-              { label: 'Pending Months', value: totalPending, icon: <Clock size={18} />, color: 'rose' },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className={cn(
-                  'bg-slate-900/60 backdrop-blur-sm border rounded-2xl p-4 text-center space-y-2',
-                  stat.color === 'blue' && 'border-blue-500/20',
-                  stat.color === 'emerald' && 'border-emerald-500/20',
-                  stat.color === 'amber' && 'border-amber-500/20',
-                  stat.color === 'rose' && 'border-rose-500/20',
-                )}
-              >
-                <div className={cn(
-                  'w-9 h-9 rounded-xl flex items-center justify-center mx-auto',
-                  stat.color === 'blue' && 'bg-blue-500/20 text-blue-400',
-                  stat.color === 'emerald' && 'bg-emerald-500/20 text-emerald-400',
-                  stat.color === 'amber' && 'bg-amber-500/20 text-amber-400',
-                  stat.color === 'rose' && 'bg-rose-500/20 text-rose-400',
-                )}>
-                  {stat.icon}
-                </div>
-                <p className={cn('font-black text-white', stat.small ? 'text-base' : 'text-2xl')}>{stat.value}</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{stat.label}</p>
-              </div>
-            ))}
-          </motion.div>
-        )}
-
-        {/* ---- Group Cards ---- */}
-        {groupData.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 border-2 border-dashed border-white/10 rounded-3xl">
-            <Layers size={48} className="text-slate-700 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold text-lg">Not enrolled in any group yet.</p>
-            <p className="text-slate-600 text-sm mt-1">Contact your agent to get started.</p>
-          </motion.div>
-        ) : (
-          <div className="space-y-4">
-            {groupData.map((gd, idx) => {
-              const isExpanded = expandedGroup === gd.group.id;
-              const completionPct = Math.min(Math.round((gd.paidCount / gd.group.duration) * 100), 100);
-
-              return (
+          {/* Stats */}
+          {groupData.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08, duration: 0.4 }}
+              className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+            >
+              {[
+                { label: 'Groups', value: groupData.length, icon: Layers, tone: 'blue' },
+                { label: 'Total paid', value: formatCurrency(totalPaid), icon: IndianRupee, tone: 'indigo', small: true },
+                { label: 'Chit lifts', value: totalWins, icon: Trophy, tone: 'amber' },
+                { label: 'Pending', value: totalPending, icon: Clock, tone: 'rose' },
+              ].map((stat, i) => (
                 <motion.div
-                  key={gd.group.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 + idx * 0.08 }}
-                  className="bg-slate-900/60 backdrop-blur-sm border border-white/10 rounded-3xl overflow-hidden"
+                  transition={{ delay: 0.1 + i * 0.05 }}
+                  whileHover={{ y: -2 }}
+                  className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-300"
                 >
-                  {/* Card header — click to expand */}
-                  <button
-                    onClick={() => setExpandedGroup(isExpanded ? null : gd.group.id)}
-                    className="w-full p-5 sm:p-6 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                        <Layers size={20} className="text-emerald-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-black text-white text-base leading-tight truncate">{gd.group.name}</p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-                          <span className="text-[10px] text-slate-400 font-bold">{formatCurrency(gd.group.totalAmount)} pool</span>
-                          <span className="text-[10px] text-slate-600">·</span>
-                          <span className="text-[10px] text-slate-400 font-bold">{gd.group.duration} months</span>
-                          {gd.myWins.length > 0 && (
-                            <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
-                              <Trophy size={10} /> Won M{gd.myWins.join(', M')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-sm font-black text-white">{gd.paidCount}<span className="text-slate-500 font-medium">/{gd.group.duration}</span></p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">months paid</p>
-                      </div>
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center border transition-all', isExpanded ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-500')}>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Progress Bar */}
-                  <div className="px-5 sm:px-6 pb-4">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{completionPct}% complete</p>
-                      <p className="text-[10px] text-slate-500 font-bold">{gd.pendingMonths} pending</p>
-                    </div>
-                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${completionPct}%` }}
-                        transition={{ duration: 0.8, delay: 0.3 + idx * 0.08 }}
-                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Expanded: monthly payment history */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden border-t border-white/10"
-                      >
-                        <div className="p-5 sm:p-6">
-                          <div className="flex items-center gap-2 mb-4">
-                            <TrendingUp size={14} className="text-emerald-400" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Payment History</p>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-                            {Array.from({ length: gd.group.duration }, (_, i) => i + 1).map(month => {
-                              const payment = gd.payments.find((p: any) => p.month === month);
-                              const isPaid = payment?.status === 'PAID';
-                              const isWin = gd.myWins.includes(month);
-
-                              return (
-                                <div
-                                  key={month}
-                                  className={cn(
-                                    'p-3 rounded-2xl border flex items-center gap-2.5 transition-all',
-                                    isWin
-                                      ? 'bg-amber-500/10 border-amber-500/30'
-                                      : isPaid
-                                      ? 'bg-emerald-500/10 border-emerald-500/30'
-                                      : 'bg-white/5 border-white/5'
-                                  )}
-                                >
-                                  <div className={cn(
-                                    'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
-                                    isWin ? 'bg-amber-500/20' : isPaid ? 'bg-emerald-500/20' : 'bg-white/10'
-                                  )}>
-                                    {isWin
-                                      ? <Trophy size={14} className="text-amber-400" />
-                                      : isPaid
-                                      ? <CheckCircle2 size={14} className="text-emerald-400" />
-                                      : <Clock size={14} className="text-slate-600" />
-                                    }
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-black text-white leading-tight">M{month}</p>
-                                    <p className={cn('text-[10px] font-bold leading-tight',
-                                      isWin ? 'text-amber-400' : isPaid ? 'text-emerald-400' : 'text-slate-600'
-                                    )}>
-                                      {isWin ? 'Won 🏆' : isPaid ? formatCurrency(payment?.amount || 0) : 'Pending'}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </motion.div>
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-xl flex items-center justify-center mb-2',
+                      stat.tone === 'blue' && 'bg-blue-50 text-blue-600',
+                      stat.tone === 'indigo' && 'bg-indigo-50 text-indigo-600',
+                      stat.tone === 'amber' && 'bg-amber-50 text-amber-600',
+                      stat.tone === 'rose' && 'bg-rose-50 text-rose-600'
                     )}
-                  </AnimatePresence>
+                  >
+                    <stat.icon size={18} />
+                  </div>
+                  <p className={cn('font-black text-slate-900 tabular-nums', stat.small ? 'text-sm' : 'text-xl')}>
+                    {stat.value}
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">{stat.label}</p>
                 </motion.div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </motion.section>
+          )}
 
-        {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="flex items-center justify-center gap-2 pt-4 pb-8 text-slate-700 text-[10px] font-bold uppercase tracking-widest"
-        >
-          <Shield size={12} />
-          Read-only view · Powered by ChitFlow
-        </motion.div>
+          {/* Groups */}
+          <section ref={groupsRef} className="scroll-mt-24">
+            <motion.h2
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2"
+            >
+              <Layers size={20} className="text-blue-600" />
+              My groups
+            </motion.h2>
 
-      </main>
+            {groupData.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-16 border-2 border-dashed border-slate-200 rounded-3xl bg-white"
+              >
+                <Layers size={44} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-800 font-bold">Not enrolled in any group yet</p>
+                <p className="text-slate-500 text-sm mt-1">Contact your agent to get started.</p>
+              </motion.div>
+            ) : (
+              <div className="space-y-4">
+                {groupData.map((gd, idx) => {
+                  const isExpanded = expandedGroup === gd.group.id;
+                  const duration = gd.group?.duration ?? 0;
+                  const paidCount = getPaidCount(gd);
+                  const pending =
+                    typeof gd.pendingMonths === 'number' ? gd.pendingMonths : Math.max(0, duration - paidCount);
+                  const completionPct = duration > 0 ? Math.min(Math.round((paidCount / duration) * 100), 100) : 0;
+
+                  return (
+                    <motion.article
+                      key={gd.group.id}
+                      layout
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.12 + idx * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      className={cn(
+                        'bg-white border rounded-2xl overflow-hidden shadow-sm transition-shadow duration-300',
+                        isExpanded ? 'border-blue-200 shadow-md shadow-blue-500/10' : 'border-slate-200 hover:shadow-md'
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpandedGroup(isExpanded ? null : gd.group.id)}
+                        className="w-full p-4 sm:p-5 text-left hover:bg-slate-50/80 transition-colors duration-200"
+                      >
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          {/* Logo + chevron together */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
+                              <Layers size={22} className="text-white" />
+                            </div>
+                            <motion.div
+                              animate={{ rotate: isExpanded ? 90 : 0 }}
+                              transition={springSmooth}
+                              className={cn(
+                                'w-7 h-7 rounded-lg flex items-center justify-center border',
+                                isExpanded
+                                  ? 'bg-blue-50 border-blue-200 text-blue-600'
+                                  : 'bg-slate-50 border-slate-200 text-slate-400'
+                              )}
+                            >
+                              <ChevronRight size={16} />
+                            </motion.div>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h3 className="font-black text-slate-900 text-base sm:text-lg leading-tight truncate">
+                                  {gd.group.name}
+                                </h3>
+                                <p className="text-[11px] text-slate-500 font-medium mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                                  <span>{formatCurrency(gd.group.totalAmount)} pool</span>
+                                  <span className="text-slate-300">·</span>
+                                  <span>{duration} months</span>
+                                  {gd.myWins?.length > 0 && (
+                                    <>
+                                      <span className="text-slate-300">·</span>
+                                      <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                                        <Trophy size={10} /> M{gd.myWins.join(', M')}
+                                      </span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0 bg-blue-50 border border-blue-100 rounded-xl px-3 py-1.5">
+                                <p className="text-lg font-black text-slate-900 tabular-nums leading-none">
+                                  {paidCount}
+                                  <span className="text-slate-400 font-semibold text-sm">/{duration}</span>
+                                </p>
+                                <p className="text-[9px] text-blue-600 font-bold uppercase tracking-wider mt-0.5">
+                                  months paid
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-4">
+                              <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                <span>{completionPct}% complete</span>
+                                <span className="tabular-nums">{pending} pending</span>
+                              </div>
+                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${completionPct}%` }}
+                                  transition={{ duration: 0.7, delay: 0.15 + idx * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                            className="overflow-hidden border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white"
+                          >
+                            <div className="p-4 sm:p-5">
+                              <div className="flex items-center gap-2 mb-4">
+                                <TrendingUp size={14} className="text-blue-600" />
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                  Monthly payment history
+                                </p>
+                              </div>
+                              <motion.div
+                                initial="hidden"
+                                animate="show"
+                                variants={{
+                                  hidden: {},
+                                  show: { transition: { staggerChildren: 0.03 } },
+                                }}
+                                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3"
+                              >
+                                {Array.from({ length: duration }, (_, i) => i + 1).map((month) => {
+                                  const payment = gd.payments?.find((p: { month: number }) => p.month === month);
+                                  const isPaid = payment?.status === 'PAID';
+                                  const isWin = gd.myWins?.includes(month);
+
+                                  return (
+                                    <motion.div
+                                      key={month}
+                                      variants={{
+                                        hidden: { opacity: 0, y: 8 },
+                                        show: { opacity: 1, y: 0 },
+                                      }}
+                                      className={cn(
+                                        'p-3 rounded-xl border flex items-center gap-2 transition-colors duration-200',
+                                        isWin && 'bg-amber-50 border-amber-200',
+                                        !isWin && isPaid && 'bg-blue-50 border-blue-200',
+                                        !isWin && !isPaid && 'bg-white border-slate-100'
+                                      )}
+                                    >
+                                      <div
+                                        className={cn(
+                                          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                                          isWin && 'bg-amber-100 text-amber-600',
+                                          !isWin && isPaid && 'bg-blue-100 text-blue-600',
+                                          !isWin && !isPaid && 'bg-slate-100 text-slate-400'
+                                        )}
+                                      >
+                                        {isWin ? (
+                                          <Trophy size={14} />
+                                        ) : isPaid ? (
+                                          <CheckCircle2 size={14} />
+                                        ) : (
+                                          <Clock size={14} />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-black text-slate-900">M{month}</p>
+                                        <p
+                                          className={cn(
+                                            'text-[10px] font-bold truncate',
+                                            isWin && 'text-amber-600',
+                                            !isWin && isPaid && 'text-blue-600',
+                                            !isWin && !isPaid && 'text-slate-400'
+                                          )}
+                                        >
+                                          {isWin ? 'Won' : isPaid ? formatCurrency(payment?.amount || 0) : 'Pending'}
+                                        </p>
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </motion.div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="flex items-center justify-center gap-2 pb-6 text-slate-400 text-[10px] font-bold uppercase tracking-widest"
+          >
+            <Shield size={12} />
+            Read-only · ChitFlow
+          </motion.footer>
+        </main>
+      </div>
+
+      <AnimatePresence>{messagesPanel}</AnimatePresence>
     </div>
   );
 }

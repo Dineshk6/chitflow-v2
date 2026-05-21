@@ -29,7 +29,7 @@ export default function DashboardCard({
     <motion.div
       whileHover={{ y: -5 }}
       className={cn(
-        "bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300",
+        "surface-card p-6 !rounded-2xl",
         className
       )}
     >
@@ -41,7 +41,7 @@ export default function DashboardCard({
           <div className={cn(
             "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
             trend.isUp 
-              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" 
+              ? "bg-blue-50 text-blue-600" 
               : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
           )}>
             <span>{trend.isUp ? '↑' : '↓'}</span>

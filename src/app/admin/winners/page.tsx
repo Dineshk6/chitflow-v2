@@ -20,7 +20,7 @@ import { motion } from 'framer-motion';
 export default function WinnersPage() {
   return (
     <AdminLayout>
-      <PageWrapper loadingContent={<TableSkeleton />}>
+      <PageWrapper>
         <div className="space-y-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Winners Hall</h1>

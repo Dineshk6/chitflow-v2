@@ -60,6 +60,7 @@ export default function AgentLoginPage() {
         setErrors({ general: result.error === "CredentialsSignin" ? 'Invalid agent credentials' : result.error });
         toast.error("Something went wrong");
       } else {
+        localStorage.removeItem('memberSession');
         localStorage.setItem('userRole', 'admin');
         toast.success("Welcome back, Agent!");
         router.push('/admin/dashboard');

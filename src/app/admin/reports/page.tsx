@@ -46,7 +46,7 @@ const statusData = [
 export default function ReportsPage() {
   return (
     <AdminLayout>
-      <PageWrapper loadingContent={<DashboardSkeleton />}>
+      <PageWrapper>
         <div className="space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>

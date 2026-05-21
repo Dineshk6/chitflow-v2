@@ -7,6 +7,7 @@ import { Phone, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { clearAllAuthSessions } from '@/lib/auth-client';
 
 export default function MemberLoginPage() {
   const router = useRouter();
@@ -45,7 +46,8 @@ export default function MemberLoginPage() {
         return;
       }
 
-      // Store member session in localStorage
+      // Drop any leftover agent (NextAuth) session before member login
+      await clearAllAuthSessions();
       localStorage.setItem('memberSession', JSON.stringify({ phone, memberId: data.memberId, name: data.name }));
       toast.success(`Welcome, ${data.name}!`);
       router.push('/member/dashboard');

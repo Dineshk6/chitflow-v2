@@ -277,9 +277,10 @@ export default function NotificationsPage() {
               </div>
 
               {isLoading ? (
-                <div className="p-12 sm:p-20 flex flex-col items-center gap-3">
-                  <Loader2 size={28} className="animate-spin text-blue-600" />
-                  <p className="text-xs font-bold text-slate-400 uppercase">Loading messages...</p>
+                <div className="p-4 space-y-3 animate-pulse">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-20 rounded-xl bg-slate-100" />
+                  ))}
                 </div>
               ) : filteredNotifications.length === 0 ? (
                 <div className="p-12 sm:p-20 flex flex-col items-center gap-3 text-center px-4">

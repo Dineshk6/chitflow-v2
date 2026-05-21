@@ -1,40 +1,19 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Wallet, 
-  Trophy, 
-  Bell, 
-  PieChart, 
-  Settings, 
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  Layers,
-  Loader2
-} from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Bell, LogOut, ChevronRight, Layers, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from './NavigationProgress';
+import { useSession } from 'next-auth/react';
+import { clearAllAuthSessions } from '@/lib/auth-client';
 
-const adminItems = [
+const springSmooth = { type: 'spring' as const, stiffness: 400, damping: 34 };
+
+const navItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
   { name: 'Messages', icon: Bell, href: '/admin/notifications' },
-];
-
-const memberItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, href: '/customer/dashboard' },
-  { name: 'My Groups', icon: Layers, href: '/customer/my-groups' },
-  { name: 'Payment History', icon: Wallet, href: '/customer/history' },
-  { name: 'Notifications', icon: Bell, href: '/customer/notifications' },
-  { name: 'Settings', icon: Settings, href: '/customer/settings' },
 ];
 
 interface SidebarProps {
@@ -42,83 +21,97 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-import { useSession } from 'next-auth/react';
-
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const { startNavigation } = useNavigation();
   const [collapsed, setCollapsed] = React.useState(false);
-  const [role, setRole] = React.useState<string | null>(null);
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    setRole(localStorage.getItem('userRole'));
-  }, []);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
 
   React.useEffect(() => {
     setPendingHref(null);
   }, [pathname]);
 
-  const items = role === 'admin' ? adminItems : memberItems;
-
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
-  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggingOut(true);
-    localStorage.removeItem('userRole');
-    router.push('/');
+    try {
+      await clearAllAuthSessions();
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+      router.push('/');
+    }
   };
 
-  const userName = session?.user?.name || (role === 'admin' ? 'Agent User' : 'Member User');
+  const userName = session?.user?.name || 'Agent';
   const userInitials = userName
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 
   const SidebarContent = (
-    <div 
-      className={cn(
-        "flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out overflow-hidden",
-        collapsed ? "w-20" : "w-64"
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 h-16 border-b border-slate-100 dark:border-white/5 flex-shrink-0">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
-              C
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">ChitFlow</span>
-          </div>
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      <div
+        className={cn(
+          'flex-shrink-0 border-b border-slate-100 bg-gradient-to-b from-blue-50/80 to-white',
+          collapsed ? 'flex flex-col items-center gap-2 py-4 px-2' : 'flex items-center gap-2 p-4'
         )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-blue-500/20">
-            C
-          </div>
-        )}
-        <button 
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors hidden md:block"
+      >
+        <motion.div
+          layout
+          className={cn(
+            'rounded-xl gradient-blue flex items-center justify-center text-white font-black shadow-md shadow-blue-500/25 shrink-0',
+            collapsed ? 'w-11 h-11 text-lg' : 'w-10 h-10 text-base'
+          )}
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          C
+        </motion.div>
+
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className={cn(
+            'hidden lg:flex rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 items-center justify-center shrink-0',
+            collapsed ? 'w-9 h-9' : 'w-8 h-8'
+          )}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <motion.span animate={{ rotate: collapsed ? 0 : 180 }} transition={springSmooth}>
+            <ChevronRight size={18} />
+          </motion.span>
         </button>
+
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.div
+              key="brand"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2 }}
+              className="min-w-0 flex-1 overflow-hidden"
+            >
+              <p className="font-black text-slate-900 text-sm leading-tight truncate">ChitFlow</p>
+              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">Agent</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Nav — scrollable middle section */}
-      <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
-        {items.map((item) => {
+      <nav className={cn('flex-1 overflow-y-auto py-4 space-y-1', collapsed ? 'px-2' : 'px-3')}>
+        {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const isPending = pendingHref === item.href;
           return (
             <button
               key={item.name}
               type="button"
+              title={collapsed ? item.name : undefined}
               onClick={() => {
                 if (pathname.startsWith(item.href)) {
                   onClose?.();
@@ -131,66 +124,52 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               }}
               disabled={isPending}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative w-full text-left",
-                isActive 
-                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold" 
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-900 dark:hover:text-white",
-                isPending && "opacity-80"
+                'flex items-center rounded-xl transition-all duration-200 w-full',
+                collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3 text-left',
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 font-semibold'
+                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700',
+                isPending && 'opacity-70'
               )}
             >
-              {isActive && (
-                <motion.div 
-                  layoutId="active-pill"
-                  className="absolute left-0 w-1 h-6 bg-blue-600 dark:bg-blue-500 rounded-r-full"
-                />
-              )}
-              <item.icon size={20} className={cn(
-                "min-w-[20px] transition-colors relative z-10",
-                isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
-              )} />
-              {!collapsed && (
-                <span className="text-sm relative z-10 flex-1 truncate">
-                  {item.name}
-                </span>
-              )}
+              <item.icon size={20} className={cn('shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
+              {!collapsed && <span className="text-sm truncate">{item.name}</span>}
             </button>
           );
         })}
       </nav>
 
-      {/* Bottom — always visible, never scrolled away */}
-      <div className="flex-shrink-0 p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900/20">
-        <div className={cn(
-          "flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/5 mb-3 shadow-sm",
-          collapsed ? "justify-center" : "px-3"
-        )}>
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-[10px] shadow-md shadow-blue-600/20">
+      <div className={cn('flex-shrink-0 border-t border-slate-100', collapsed ? 'p-2 space-y-2' : 'p-3 space-y-2')}>
+        <div
+          className={cn(
+            'flex items-center rounded-xl bg-slate-50 border border-slate-100',
+            collapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
+          )}
+          title={collapsed ? userName : undefined}
+        >
+          <div className="w-9 h-9 rounded-full gradient-blue flex items-center justify-center text-white text-[10px] font-bold shrink-0">
             {userInitials}
           </div>
           {!collapsed && (
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tight">{userName}</p>
-              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate uppercase tracking-widest opacity-80">
-                {role === 'admin' ? 'Agent' : 'Member'}
-              </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
+              <p className="text-[10px] text-blue-600 font-semibold">Agent account</p>
             </div>
           )}
         </div>
-        
-        <button 
+        <button
+          type="button"
           onClick={() => setShowLogoutModal(true)}
           disabled={isLoggingOut}
+          title={collapsed ? 'Sign out' : undefined}
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 transition-all font-bold group border border-transparent hover:border-red-600 dark:hover:border-red-500",
-            collapsed ? "justify-center" : ""
+            'w-full flex items-center justify-center gap-2 font-semibold text-sm border border-slate-200 bg-white text-slate-700',
+            'hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all duration-200 active:scale-[0.98]',
+            collapsed ? 'p-3 rounded-xl' : 'px-4 py-3 rounded-2xl'
           )}
         >
-          {isLoggingOut ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <LogOut size={20} className="min-w-[20px] transition-transform group-hover:-translate-x-1" />
-          )}
-          {!collapsed && <span className="text-sm">Logout safely</span>}
+          {isLoggingOut ? <Loader2 size={18} className="animate-spin text-red-500" /> : <LogOut size={16} />}
+          {!collapsed && <span>Sign out</span>}
         </button>
       </div>
     </div>
@@ -198,12 +177,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:block sticky top-0 h-screen flex-shrink-0">
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 84 : 256 }}
+        transition={springSmooth}
+        className="hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 z-20 border-r border-slate-200/80 shadow-sm overflow-hidden"
+      >
         {SidebarContent}
-      </aside>
+      </motion.aside>
 
-      {/* Mobile Drawer */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -212,31 +194,41 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
             />
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 h-[100dvh] z-50 lg:hidden shadow-2xl"
+              transition={springSmooth}
+              className="fixed inset-y-0 left-0 w-64 z-50 lg:hidden shadow-2xl flex flex-col"
             >
               {SidebarContent}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
-      <LogoutModal 
-        isOpen={showLogoutModal} 
-        onClose={() => setShowLogoutModal(false)} 
-        onConfirm={handleLogout} 
-        isLoggingOut={isLoggingOut} 
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+        isLoggingOut={isLoggingOut}
       />
     </>
   );
 }
 
-const LogoutModal = ({ isOpen, onClose, onConfirm, isLoggingOut }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; isLoggingOut: boolean; }) => {
+function LogoutModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoggingOut,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isLoggingOut: boolean;
+}) {
   if (!isOpen) return null;
   return (
     <AnimatePresence>
@@ -246,39 +238,34 @@ const LogoutModal = ({ isOpen, onClose, onConfirm, isLoggingOut }: { isOpen: boo
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
         />
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800 text-center"
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          className="relative w-full max-w-sm surface-card p-6 text-center shadow-2xl"
         >
-          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-500 mx-auto mb-4">
-            <LogOut size={32} />
+          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 mx-auto mb-4">
+            <LogOut size={28} />
           </div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Ready to leave?</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
-            You are about to securely log out of your session. You'll need your credentials to access the dashboard again.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={isLoggingOut}
-              className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-            >
+          <h3 className="text-xl font-black text-slate-900 mb-2">Sign out?</h3>
+          <p className="text-sm text-slate-600 mb-6">You&apos;ll need to sign in again to access the agent dashboard.</p>
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
+            <button type="button" onClick={onClose} disabled={isLoggingOut} className="btn-secondary flex-1 !h-11">
               Cancel
             </button>
             <button
+              type="button"
               onClick={onConfirm}
               disabled={isLoggingOut}
-              className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-500/25 transition-all flex items-center justify-center gap-2"
+              className="flex-1 h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-2"
             >
-              {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Yes, Log Out'}
+              {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Sign out'}
             </button>
           </div>
         </motion.div>
       </div>
     </AnimatePresence>
   );
-};
+}
