@@ -21,7 +21,6 @@ import {
   MessageCircle,
   Inbox,
   X,
-  Menu,
 } from 'lucide-react';
 import { formatCurrency, cn, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -54,8 +53,6 @@ export default function MemberDashboard() {
   const [memberMessage, setMemberMessage] = useState('');
   const [messageGroupId, setMessageGroupId] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const groupsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -189,10 +186,6 @@ export default function MemberDashboard() {
   const totalWins = groupData.reduce((s, g) => s + (g.myWins?.length || 0), 0);
   const totalPending = groupData.reduce((s, g) => s + (g.pendingMonths || 0), 0);
 
-  const scrollToGroups = () => {
-    setMobileNavOpen(false);
-    groupsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   const messagesPanel = isNotifOpen ? (
     <>
@@ -330,219 +323,66 @@ export default function MemberDashboard() {
     </>
   ) : null;
 
-  const SidebarInner = ({ onNavClick }: { onNavClick?: () => void }) => (
-    <>
-      <div
-        className={cn(
-          'flex-shrink-0 border-b border-slate-100 bg-gradient-to-b from-blue-50/50 to-white',
-          sidebarCollapsed ? 'flex flex-col items-center gap-2 py-4 px-2' : 'flex items-center gap-2 p-4'
-        )}
-      >
-        <motion.div
-          layout
-          className={cn(
-            'rounded-xl gradient-blue flex items-center justify-center text-white font-black shadow-md shadow-blue-500/25 shrink-0',
-            sidebarCollapsed ? 'w-11 h-11 text-lg' : 'w-10 h-10 text-base'
-          )}
-        >
-          C
-        </motion.div>
-
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed((c) => !c)}
-          className={cn(
-            'rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center shrink-0',
-            sidebarCollapsed ? 'w-9 h-9' : 'w-8 h-8'
-          )}
-          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <motion.span animate={{ rotate: sidebarCollapsed ? 0 : 180 }} transition={springSmooth}>
-            <ChevronRight size={18} />
-          </motion.span>
-        </button>
-
-        <AnimatePresence mode="wait">
-          {!sidebarCollapsed && (
-            <motion.div
-              key="brand-text"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.2 }}
-              className="min-w-0 flex-1 overflow-hidden"
-            >
-              <p className="font-black text-slate-900 text-sm leading-tight truncate">ChitFlow</p>
-              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">Member</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <nav className={cn('flex-1 py-4 space-y-1', sidebarCollapsed ? 'px-2' : 'px-3')}>
-        <button
-          type="button"
-          onClick={() => {
-            scrollToGroups();
-            onNavClick?.();
-          }}
-          className={cn(
-            'w-full flex items-center rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold text-sm transition-all duration-200',
-            sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3'
-          )}
-          title={sidebarCollapsed ? 'My groups' : undefined}
-        >
-          <Layers size={20} className="text-blue-600 shrink-0" />
-          {!sidebarCollapsed && <span>My groups</span>}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setIsNotifOpen(true);
-            onNavClick?.();
-          }}
-          className={cn(
-            'w-full flex items-center rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold text-sm transition-all duration-200 relative',
-            sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3'
-          )}
-          title={sidebarCollapsed ? 'Messages' : undefined}
-        >
-          <Bell size={20} className="text-blue-600 shrink-0" />
-          {!sidebarCollapsed && <span>Messages</span>}
-          {unreadNotifCount > 0 && (
-            <span
-              className={cn(
-                'bg-blue-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 flex items-center justify-center px-1',
-                sidebarCollapsed ? 'absolute -top-0.5 -right-0.5' : 'ml-auto'
-              )}
-            >
-              {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
-            </span>
-          )}
-        </button>
-      </nav>
-
-      <div className={cn('flex-shrink-0 border-t border-slate-100 p-3 space-y-2', sidebarCollapsed && 'px-2')}>
-        <div
-          className={cn(
-            'flex items-center rounded-xl bg-slate-50 border border-slate-100',
-            sidebarCollapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
-          )}
-          title={sidebarCollapsed ? session?.name : undefined}
-        >
-          <div className="w-9 h-9 rounded-full gradient-blue flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-            {session?.name?.charAt(0)?.toUpperCase() || 'M'}
-          </div>
-          {!sidebarCollapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-900 truncate">{session?.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{session?.phone}</p>
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-semibold',
-            'hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all duration-200',
-            sidebarCollapsed ? 'p-3' : 'px-4 py-2.5'
-          )}
-          title={sidebarCollapsed ? 'Sign out' : undefined}
-        >
-          <LogOut size={16} />
-          {!sidebarCollapsed && <span>Sign out</span>}
-        </button>
-      </div>
-    </>
-  );
 
   if (isLoading) {
     return <MemberDashboardSkeleton />;
   }
 
   return (
-    <div className="member-portal-bg min-h-screen flex">
-      {/* Desktop sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{ width: sidebarCollapsed ? 84 : 256 }}
-        transition={springSmooth}
-        className="hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200/80 shadow-sm overflow-hidden z-30"
-      >
-        <SidebarInner />
-      </motion.aside>
+    <div className="member-portal-bg min-h-screen">
+      <AnimatePresence>{messagesPanel}</AnimatePresence>
 
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileNavOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setMobileNavOpen(false)}
-            />
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={springSmooth}
-              className="fixed inset-y-0 left-0 w-64 z-50 lg:hidden bg-white border-r border-slate-200 shadow-2xl flex flex-col"
-            >
-              <SidebarInner onNavClick={() => setMobileNavOpen(false)} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {/* Top bar — mobile / tablet */}
-        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-sm lg:shadow-none">
-          <div className="max-w-3xl xl:max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(true)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-blue-50"
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-              <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-sm">
-                C
-              </div>
-              <span className="font-black text-slate-900 text-sm">ChitFlow</span>
-            </div>
-
-            <p className="hidden lg:block text-sm font-bold text-slate-600 truncate flex-1">
-              Hi, <span className="text-slate-900">{session?.name}</span>
-            </p>
-
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="relative hidden sm:block">
-                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
-                <span className="pl-8 pr-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
-                  {session?.phone}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsNotifOpen((o) => !o)}
-                className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all duration-200 lg:hidden"
-                aria-label="Messages"
-              >
-                <Bell size={18} className="text-slate-600" />
-                {unreadNotifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-blue-600 text-[9px] font-black text-white rounded-full flex items-center justify-center border-2 border-white">
-                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
-                  </span>
-                )}
-              </button>
-            </div>
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-sm">
+        <div className="max-w-3xl xl:max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-8 h-8 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-sm">C</div>
+            <span className="font-black text-slate-900 text-sm">ChitFlow</span>
           </div>
-        </header>
+
+          {/* Greeting */}
+          <p className="hidden sm:block text-sm font-bold text-slate-600 truncate flex-1">
+            Hi, <span className="text-slate-900">{session?.name}</span>
+          </p>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Phone pill — sm+ */}
+            <div className="relative hidden sm:block">
+              <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
+              <span className="pl-8 pr-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                {session?.phone}
+              </span>
+            </div>
+
+            {/* Bell — always visible */}
+            <button
+              type="button"
+              onClick={() => setIsNotifOpen((o) => !o)}
+              className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all duration-200"
+              aria-label="Messages"
+            >
+              <Bell size={18} className="text-slate-600" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-blue-600 text-[9px] font-black text-white rounded-full flex items-center justify-center border-2 border-white">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
+            </button>
+
+            {/* Sign out */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 text-slate-600"
+              aria-label="Sign out"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        </div>
+      </header>
 
         <main className="flex-1 max-w-3xl xl:max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           {/* Welcome */}
@@ -550,15 +390,16 @@ export default function MemberDashboard() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="surface-card p-5 sm:p-6 !rounded-2xl flex items-center gap-4"
+            className="surface-card p-4 sm:p-6 !rounded-2xl flex items-center gap-3 sm:gap-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-100 flex items-center justify-center shrink-0">
-              <User size={28} className="text-blue-600" />
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-100 flex items-center justify-center shrink-0">
+              <User size={20} className="sm:hidden text-blue-600" />
+              <User size={28} className="hidden sm:block text-blue-600" />
             </div>
-            <div>
-              <p className="text-slate-500 text-sm">Welcome back</p>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">{session?.name}</h1>
-              <p className="text-xs text-blue-600 font-semibold mt-0.5">Your chit groups at a glance</p>
+            <div className="min-w-0">
+              <p className="text-slate-500 text-xs sm:text-sm">Welcome back</p>
+              <h1 className="text-xl sm:text-3xl font-black text-slate-900 leading-tight truncate">{session?.name}</h1>
+              <p className="text-xs text-blue-600 font-semibold mt-0.5 hidden sm:block">Your chit groups at a glance</p>
             </div>
           </motion.section>
 
@@ -605,15 +446,22 @@ export default function MemberDashboard() {
           )}
 
           {/* Groups */}
-          <section ref={groupsRef} className="scroll-mt-24">
-            <motion.h2
+          <section ref={groupsRef} className="scroll-mt-20">
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2"
+              className="flex items-center justify-between mb-3"
             >
-              <Layers size={20} className="text-blue-600" />
-              My groups
-            </motion.h2>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Layers size={15} className="text-blue-600" />
+                </div>
+                <h2 className="text-base font-black text-slate-900">My groups</h2>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {groupData.length}
+                </span>
+              </div>
+            </motion.div>
 
             {groupData.length === 0 ? (
               <motion.div
@@ -652,36 +500,24 @@ export default function MemberDashboard() {
                         onClick={() => setExpandedGroup(isExpanded ? null : gd.group.id)}
                         className="w-full p-4 sm:p-5 text-left hover:bg-slate-50/80 transition-colors duration-200"
                       >
-                        <div className="flex items-start gap-3 sm:gap-4">
-                          {/* Logo + chevron together */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-                              <Layers size={22} className="text-white" />
-                            </div>
-                            <motion.div
-                              animate={{ rotate: isExpanded ? 90 : 0 }}
-                              transition={springSmooth}
-                              className={cn(
-                                'w-7 h-7 rounded-lg flex items-center justify-center border',
-                                isExpanded
-                                  ? 'bg-blue-50 border-blue-200 text-blue-600'
-                                  : 'bg-slate-50 border-slate-200 text-slate-400'
-                              )}
-                            >
-                              <ChevronRight size={16} />
-                            </motion.div>
+                        <div className="flex items-center gap-3">
+                          {/* Logo */}
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                            <Layers size={18} className="sm:hidden text-white" />
+                            <Layers size={22} className="hidden sm:block text-white" />
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="font-black text-slate-900 text-base sm:text-lg leading-tight truncate">
+                            <div className="flex items-center justify-between gap-2">
+                              {/* Name + meta */}
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-black text-slate-900 text-sm sm:text-lg leading-tight truncate">
                                   {gd.group.name}
                                 </h3>
-                                <p className="text-[11px] text-slate-500 font-medium mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
-                                  <span>{formatCurrency(gd.group.totalAmount)} pool</span>
+                                <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-0.5 flex flex-wrap gap-x-1.5 gap-y-0.5">
+                                  <span>{formatCurrency(gd.group.totalAmount)}</span>
                                   <span className="text-slate-300">·</span>
-                                  <span>{duration} months</span>
+                                  <span>{duration}M</span>
                                   {gd.myWins?.length > 0 && (
                                     <>
                                       <span className="text-slate-300">·</span>
@@ -692,14 +528,29 @@ export default function MemberDashboard() {
                                   )}
                                 </p>
                               </div>
-                              <div className="text-right shrink-0 bg-blue-50 border border-blue-100 rounded-xl px-3 py-1.5">
-                                <p className="text-lg font-black text-slate-900 tabular-nums leading-none">
-                                  {paidCount}
-                                  <span className="text-slate-400 font-semibold text-sm">/{duration}</span>
-                                </p>
-                                <p className="text-[9px] text-blue-600 font-bold uppercase tracking-wider mt-0.5">
-                                  months paid
-                                </p>
+
+                              {/* Badge + Chevron */}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="text-center bg-blue-50 border border-blue-100 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5">
+                                  <p className="text-sm sm:text-lg font-black text-slate-900 tabular-nums leading-none">
+                                    {paidCount}<span className="text-slate-400 font-semibold text-xs sm:text-sm">/{duration}</span>
+                                  </p>
+                                  <p className="text-[8px] text-blue-600 font-bold uppercase tracking-wider mt-0.5 hidden sm:block">
+                                    months paid
+                                  </p>
+                                </div>
+                                <motion.div
+                                  animate={{ rotate: isExpanded ? 90 : 0 }}
+                                  transition={springSmooth}
+                                  className={cn(
+                                    'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border shrink-0',
+                                    isExpanded
+                                      ? 'bg-blue-50 border-blue-200 text-blue-600'
+                                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                                  )}
+                                >
+                                  <ChevronRight size={14} />
+                                </motion.div>
                               </div>
                             </div>
 
@@ -819,9 +670,6 @@ export default function MemberDashboard() {
             Read-only · ChitFlow
           </motion.footer>
         </main>
-      </div>
-
-      <AnimatePresence>{messagesPanel}</AnimatePresence>
     </div>
   );
 }
