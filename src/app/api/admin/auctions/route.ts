@@ -59,13 +59,13 @@ export async function PATCH(req: Request) {
       });
       const previousWinnerIds = new Set(previousAuctions.map(a => a.winnerId).filter(Boolean) as string[]);
 
-      const memberCount = auction.group.members.length;
-      const dividendPerMember = highestBid.amount / memberCount;
-      const amountToPayRegular = auction.group.monthlyContribution - dividendPerMember;
+      const dividendPerMember = 0;
+      const amountToPayRegular = auction.group.monthlyContribution;
 
       const paymentOperations = auction.group.members.map(member => {
         const hasWonBefore = previousWinnerIds.has(member.userId);
-        const amount = hasWonBefore 
+        const isCurrentWinner = member.userId === highestBid.userId;
+        const amount = (hasWonBefore || isCurrentWinner)
           ? (auction.group.liftedContribution || auction.group.monthlyContribution) 
           : amountToPayRegular;
 
@@ -87,8 +87,8 @@ export async function PATCH(req: Request) {
           data: {
             status: "CLOSED",
             winnerId: highestBid.userId,
-            winningBid: highestBid.amount,
-            dividend: dividendPerMember,
+            winningBid: 0,
+            dividend: 0,
           }
         }),
         // Increment group month

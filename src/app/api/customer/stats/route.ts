@@ -28,17 +28,8 @@ export async function GET() {
       }
     });
 
-    // 3. Calculate total dividend earned
-    const groupIds = memberships.map(m => m.groupId);
-    const auctions = await prisma.auction.findMany({
-      where: {
-        groupId: { in: groupIds },
-        status: "CLOSED"
-      },
-      select: { dividend: true }
-    });
-
-    const totalDividend = auctions.reduce((sum, a) => sum + (a.dividend || 0), 0);
+    // 3. Calculate total dividend earned (dividend flow is disabled)
+    const totalDividend = 0;
 
     const activeGroups = memberships.map((m: any) => {
       const group = m.group;

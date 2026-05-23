@@ -470,7 +470,7 @@ export default function NotificationsPage() {
                     type="text"
                     value={broadcastTitle}
                     onChange={(e) => setBroadcastTitle(e.target.value)}
-                    placeholder="e.g., Chit Fund Dividend Released"
+                    placeholder="e.g., Monthly Chit Lift Winner Announced"
                     className="w-full h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 dark:text-slate-200 transition-all"
                   />
                 </div>

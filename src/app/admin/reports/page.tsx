@@ -135,7 +135,7 @@ export default function ReportsPage() {
               { label: 'Group Profitability', value: '18.4%', trend: '+2.1%', isUp: true },
               { label: 'Customer Retention', value: '94.2%', trend: '+0.5%', isUp: true },
               { label: 'Default Rate', value: '1.2%', trend: '-0.3%', isUp: true },
-              { label: 'Avg. Auction Dividend', value: '₹1,240', trend: '+12%', isUp: true },
+              { label: 'Avg. Lifted Value', value: '₹1,25,000', trend: '+4%', isUp: true },
             ].map((stat, idx) => (
               <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>

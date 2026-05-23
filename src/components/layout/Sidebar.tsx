@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, ChevronRight, Layers, Loader2, Sparkles } from 'lucide-react';
+import { Bell, LogOut, ChevronRight, Layers, Loader2, Sparkles, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from './NavigationProgress';
@@ -14,6 +14,7 @@ const springSmooth = { type: 'spring' as const, stiffness: 380, damping: 30 };
 const navItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
   { name: 'Messages', icon: Bell, href: '/admin/notifications' },
+  { name: 'Settings', icon: Settings, href: '/admin/settings' },
 ];
 
 interface SidebarProps {

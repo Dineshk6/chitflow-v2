@@ -24,7 +24,7 @@ export default function WinnersPage() {
         <div className="space-y-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Winners Hall</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">Track auction winners and dividend distributions.</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">Track auction winners and chit lift history.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -38,9 +38,9 @@ export default function WinnersPage() {
             </div>
             
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Avg. Auction Dividend</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Avg. Lifted Value</p>
               <div className="flex items-center gap-3 mt-2">
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(1250)}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(125000)}</h3>
                 <span className="flex items-center text-emerald-600 text-xs font-bold">
                   <ArrowUpRight size={14} />
                   +4%
@@ -50,15 +50,15 @@ export default function WinnersPage() {
             </div>
 
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Foregone Amount</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Lifted Value</p>
               <div className="flex items-center gap-3 mt-2">
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(85000)}</h3>
-                <span className="flex items-center text-red-600 text-xs font-bold">
-                  <TrendingDown size={14} />
-                  -2%
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(1154000)}</h3>
+                <span className="flex items-center text-emerald-600 text-xs font-bold">
+                  <ArrowUpRight size={14} />
+                  +12%
                 </span>
               </div>
-              <p className="text-slate-400 text-xs mt-2">Distributed to members</p>
+              <p className="text-slate-400 text-xs mt-2">Overall across groups</p>
             </div>
           </div>
 
@@ -103,9 +103,6 @@ export default function WinnersPage() {
                           <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                           <span>Month {winner.month}</span>
                         </div>
-                        <p className="text-xs text-emerald-600 font-semibold">
-                          Dividend: {formatCurrency(winner.dividend)}
-                        </p>
                       </div>
                       <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         <Calendar size={10} />

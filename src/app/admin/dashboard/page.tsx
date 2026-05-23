@@ -430,12 +430,11 @@ export default function Dashboard() {
       return;
     }
     
-    // Calculate dividend and dues
-    const poolAmount = selectedGroup.totalAmount;
-    const dividend = Math.max(poolAmount - liftAmount, 0);
-    const perMemberDiscount = dividend > 0 ? (dividend / members.length) : 0;
+    // Calculate dividend and dues (No dividend flow applied)
+    const dividend = 0;
+    const perMemberDiscount = 0;
     const normalDue = selectedGroup.monthlyContribution;
-    const discountedDue = Math.max(normalDue - perMemberDiscount, 0);
+    const discountedDue = normalDue;
 
     setSelectedWinnerId(winnerId);
     setIsApplyingDividend(true);
@@ -450,8 +449,8 @@ export default function Dashboard() {
           month: selectedMonth,
           winnerId,
           prizeValue: winnerId === 'none' ? 0 : liftAmount,
-          winningBid: winnerId === 'none' ? 0 : dividend,
-          dividend: winnerId === 'none' ? 0 : dividend,
+          winningBid: 0,
+          dividend: 0,
         }),
       });
 
@@ -460,40 +459,45 @@ export default function Dashboard() {
         throw new Error(errData.error || 'Failed to update winner');
       }
 
-      // 2. If a winner is set, batch update payments for all other members to the discounted due!
-      if (winnerId !== 'none') {
-        const batchPayments = members
-          .filter(m => m.id !== winnerId)
-          .map(m => {
-            const payment = m.payments?.find((p: any) => p.month === selectedMonth);
-            return {
-              userId: m.id,
-              amount: discountedDue,
-              status: payment?.status || 'PENDING'
-            };
-          });
+      // 2. Batch update payments for all members
+      const batchPayments = members.map(m => {
+        const payment = m.payments?.find((p: any) => p.month === selectedMonth);
+        const isCurrentWinner = winnerId !== 'none' && m.id === winnerId;
+        const hasWonBefore = m.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
+        
+        const dueAmount = (isCurrentWinner || hasWonBefore)
+          ? (selectedGroup.liftedContribution || selectedGroup.monthlyContribution)
+          : selectedGroup.monthlyContribution;
 
-        if (batchPayments.length > 0) {
-          const batchRes = await fetch('/api/admin/customers', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              groupId: selectedGroup.id,
-              month: selectedMonth,
-              payments: batchPayments
-            })
-          });
-          
-          if (!batchRes.ok) {
-            toast.error("Winner set, but failed to apply discounted dues to other members.");
-          } else {
-            toast.success(`Winner set! Dividend of ${formatCurrency(dividend)} applied automatically. Non-winner dues set to ${formatCurrency(discountedDue)}.`);
-          }
+        return {
+          userId: m.id,
+          amount: dueAmount,
+          status: payment?.status || 'PENDING'
+        };
+      });
+
+      if (batchPayments.length > 0) {
+        const batchRes = await fetch('/api/admin/customers', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            groupId: selectedGroup.id,
+            month: selectedMonth,
+            payments: batchPayments
+          })
+        });
+        
+        if (!batchRes.ok) {
+          toast.error("Failed to update member dues.");
         } else {
-          toast.success("Winner updated successfully!");
+          if (winnerId !== 'none') {
+            toast.success(`Winner set! Dues applied for members.`);
+          } else {
+            toast.success("Winner cleared and dues reset successfully!");
+          }
         }
       } else {
-        toast.success("Winner cleared successfully!");
+        toast.success("Winner updated successfully!");
       }
 
       // 3. Trigger WhatsApp notification modal for the winner
@@ -585,110 +589,162 @@ export default function Dashboard() {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a5'
+      format: 'a4'
     });
 
-    // Color Palette
-    const slate900 = [15, 23, 42];
-    const slate600 = [71, 85, 105];
-    const slate500 = [100, 116, 139];
-    const borderGray = [226, 232, 240];
-    const rowAltGray = [248, 250, 252];
-
-    // Agent name logic
+    // Brand name logic
     const agentName = session?.user?.name;
     const firstName = agentName ? agentName.trim().split(/\s+/)[0] : '';
     const brandName = firstName ? `${firstName.toUpperCase()} CHITFLOW` : 'CHITFLOW SYSTEM';
 
-    // 1. Accent line at very top
-    doc.setFillColor(slate900[0], slate900[1], slate900[2]);
-    doc.rect(0, 0, 148, 3, 'F');
+    // Account summary stats
+    const paidPayments = member.payments?.filter((p: any) => p.status === 'PAID') || [];
+    const paidCount = paidPayments.length;
+    const pendingCount = Math.max(0, totalMonths - paidCount);
+    const totalPaid = paidPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
-    // 2. Title Section
-    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    // Color Palette
+    const primaryColor = [79, 70, 229]; // Indigo-600
+    const textDark = [15, 23, 42]; // Slate-900
+    const textMuted = [100, 116, 139]; // Slate-500
+    const textLight = [148, 163, 184]; // Slate-400
+    const bgLight = [248, 250, 252]; // Slate-50
+    const borderGray = [226, 232, 240]; // Slate-200
+
+    // 1. Top Decorative Bar
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 5, 'F');
+
+    // 2. Modern Header Layout
+    // Brand icon - Modern gradient growth chart pillars (Fintech themed)
+    doc.setFillColor(165, 180, 252); // Light indigo
+    doc.roundedRect(20, 19, 1.8, 4, 0.4, 0.4, 'F');
+    doc.setFillColor(129, 140, 248); // Medium indigo
+    doc.roundedRect(23, 17, 1.8, 6, 0.4, 0.4, 'F');
+    doc.setFillColor(79, 70, 229);  // Primary indigo
+    doc.roundedRect(26, 15, 1.8, 8, 0.4, 0.4, 'F');
+
+    // Brand title
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.text(brandName, 12, 13);
+    doc.text(brandName, 31, 21.5);
 
-    // Agent info line (Email & Phone)
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+    // Document header info (Right aligned)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('STATEMENT OF ACCOUNT', 190, 21.5, { align: 'right' });
+
+    // Sub-header details
     const agentEmail = session?.user?.email || '';
-    const agentPhone = (session?.user as any)?.phone || '';
+    let agentPhone = (session?.user as any)?.phone || '';
+    if (agentPhone.startsWith('no-phone')) {
+      agentPhone = '';
+    }
     const agentContact = [agentEmail, agentPhone].filter(Boolean).join('   |   ');
-    doc.text(agentContact, 12, 18);
 
-    doc.setFontSize(8.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-    doc.text('STATEMENT OF CHIT ACCOUNT', 136, 13, { align: 'right' });
-
-    doc.setFontSize(7.5);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 136, 18, { align: 'right' });
-
-    // Divider
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.setLineWidth(0.3);
-    doc.line(12, 23, 136, 23);
-
-    // 3. Dual Card Block (Member and Group Info)
-    const cardY = 27;
-    const cardHeight = 22;
-    const cardWidth = 59;
-
-    // Member Info Card (Left)
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
-    doc.roundedRect(12, cardY, cardWidth, cardHeight, 1.5, 1.5, 'FD');
-
-    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('MEMBER PARTICIPANT', 16, cardY + 5);
-
-    doc.setFontSize(8.5);
-    doc.text(member.name || 'N/A', 16, cardY + 11);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
-    doc.text(member.phone || member.mobile || 'N/A', 16, cardY + 16);
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text(`Agent: ${agentContact}`, 20, 28);
 
-    // Chit Group Card (Right)
-    doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
-    doc.roundedRect(77, cardY, cardWidth, cardHeight, 1.5, 1.5, 'FD');
-
-    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('CHIT SCHEME DETAILS', 81, cardY + 5);
-
-    doc.setFontSize(8.5);
-    doc.text(selectedGroup?.name || 'N/A', 81, cardY + 11);
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
-    doc.text(`Pool Value: Rs. ${(selectedGroup?.totalAmount || 0).toLocaleString('en-IN')}`, 81, cardY + 16);
+    doc.setTextColor(textLight[0], textLight[1], textLight[2]);
+    doc.text(`Issued: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 190, 28, { align: 'right' });
 
-    // 4. Table Setup
-    let y = 58;
-    const tableHeaderHeight = 8;
-    
-    // Header background
+    // Thin header divider
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.setLineWidth(0.25);
+    doc.line(20, 32, 190, 32);
+
+    // 3. Consolidated Modern Summary Block
+    const summaryY = 37;
+    const summaryHeight = 30;
+    const summaryWidth = 170;
+
+    doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.roundedRect(20, summaryY, summaryWidth, summaryHeight, 3, 3, 'FD');
+
+    // Column 1: Member Info
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MEMBER DETAILS', 26, summaryY + 6);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+    doc.text(member.name || 'N/A', 26, summaryY + 12.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text(member.phone || member.mobile || 'N/A', 26, summaryY + 18.5);
+
+    // Column 2: Chit Scheme
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('CHIT SCHEME DETAILS', 85, summaryY + 6);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+    doc.text(selectedGroup?.name || 'N/A', 85, summaryY + 12.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text(`Pool Value: Rs. ${(selectedGroup?.totalAmount || 0).toLocaleString('en-IN')}`, 85, summaryY + 18.5);
+    doc.text(`Duration: ${totalMonths} Months`, 85, summaryY + 24.5);
+
+    // Column 3: Account Status
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('ACCOUNT STATUS', 142, summaryY + 6);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(21, 128, 61); // Green-700
+    doc.text(`${paidCount} / ${totalMonths} Paid`, 142, summaryY + 12.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text(`Total Paid: Rs. ${totalPaid.toLocaleString('en-IN')}`, 142, summaryY + 18.5);
+
+    if (pendingCount > 0) {
+      doc.setTextColor(185, 28, 28); // Red-700
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Pending: ${pendingCount} Months`, 142, summaryY + 24.5);
+    } else {
+      doc.setTextColor(21, 128, 61); // Green-700
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Fully Up-to-Date`, 142, summaryY + 24.5);
+    }
+
+    // 4. Modern Table Layout (A4 optimized)
+    let y = 78;
+    const tableHeaderHeight = 9;
+    const tableStartX = 20;
+    const tableWidth = 170;
+
+    // Header background (Slate-100)
     doc.setFillColor(241, 245, 249);
-    doc.rect(12, y - 5, 124, tableHeaderHeight, 'F');
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.rect(12, y - 5, 124, tableHeaderHeight, 'S');
+    doc.roundedRect(tableStartX, y - 5, tableWidth, tableHeaderHeight, 1.5, 1.5, 'F');
 
-    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text('CYCLE MONTH', 16, y);
-    doc.text('DUE AMOUNT (INR)', 60, y);
-    doc.text('PAYMENT STATUS', 132, y, { align: 'right' });
+    doc.setFontSize(8.5);
+    doc.text('CYCLE MONTH', 26, y + 1);
+    doc.text('DUE AMOUNT (INR)', 85, y + 1);
+    doc.text('PAYMENT STATUS', 184, y + 1, { align: 'right' });
 
-    y += 6.5;
-    const tableStartY = 53;
+    y += 8.5;
+    let pageNum = 1;
 
     // Render Rows Loop
     for (let m = 1; m <= totalMonths; m++) {
@@ -703,92 +759,97 @@ export default function Dashboard() {
           : selectedGroup?.monthlyContribution;
       }
 
-      // Pagination Break (A5 limit)
-      if (y > 190) {
-        // Draw bottom boundary of current page table
+      // Pagination Break (A4 limit at y = 270)
+      if (y > 270) {
+        // Draw page footer before transition
         doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-        doc.rect(12, tableStartY, 124, y - 4 - tableStartY, 'S');
+        doc.setLineWidth(0.2);
+        doc.line(20, 282, 190, 282);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(textLight[0], textLight[1], textLight[2]);
+        doc.text('System generated statement. Securely processed by ChitFlow.', 105, 287, { align: 'center' });
+        doc.text(`Page ${pageNum}`, 190, 287, { align: 'right' });
 
         doc.addPage();
+        pageNum++;
         
-        // Page accent bar
-        doc.setFillColor(slate900[0], slate900[1], slate900[2]);
-        doc.rect(0, 0, 148, 3, 'F');
+        // Top decorative bar
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(0, 0, 210, 5, 'F');
 
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(`${brandName} - STATEMENT OF ACCOUNT (Contd.)`, 12, 10);
+        doc.setFontSize(10);
+        doc.text(`${brandName} - STATEMENT OF ACCOUNT (Contd.)`, 20, 15);
 
-        y = 22;
+        y = 25;
 
         // Draw Table Header on New Page
         doc.setFillColor(241, 245, 249);
-        doc.rect(12, y - 5, 124, tableHeaderHeight, 'F');
-        doc.rect(12, y - 5, 124, tableHeaderHeight, 'S');
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.roundedRect(tableStartX, y - 5, tableWidth, tableHeaderHeight, 1.5, 1.5, 'F');
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text('CYCLE MONTH', 16, y);
-        doc.text('DUE AMOUNT (INR)', 60, y);
-        doc.text('PAYMENT STATUS', 132, y, { align: 'right' });
+        doc.setFontSize(8.5);
+        doc.text('CYCLE MONTH', 26, y + 1);
+        doc.text('DUE AMOUNT (INR)', 85, y + 1);
+        doc.text('PAYMENT STATUS', 184, y + 1, { align: 'right' });
 
-        y += 6.5;
+        y += 8.5;
       }
 
       // Zebra striping for rows
       if (m % 2 !== 0) {
-        doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
-        doc.rect(12, y - 4.2, 124, 7.6, 'F');
+        doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
+        doc.rect(20.1, y - 4, 169.8, 8.5, 'F');
       }
 
-      // Soft divider between rows
+      // Soft horizontal separator between rows (No vertical lines for clean aesthetic)
       doc.setDrawColor(241, 245, 249);
-      doc.line(12, y + 3.4, 136, y + 3.4);
+      doc.setLineWidth(0.2);
+      doc.line(20, y + 4.5, 190, y + 4.5);
 
       // Print Row Text
-      doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(`Month ${m}`, 16, y);
-      doc.text(`Rs. ${amountVal.toLocaleString('en-IN')}`, 60, y);
+      doc.setFontSize(8.5);
+      doc.text(`Month ${m}`, 26, y + 1.2);
+      doc.text(`Rs. ${amountVal.toLocaleString('en-IN')}`, 85, y + 1.2);
 
-      // Draw Capsule Status Badge
-      const badgeW = 18;
-      const badgeH = 4.8;
-      const badgeX = 132 - badgeW;
-      const badgeY = y - 3.4;
+      // Draw Capsule Status Badge (Right aligned)
+      const badgeW = 20;
+      const badgeH = 5.2;
+      const badgeX = 184 - badgeW;
+      const badgeY = y - 2;
 
       if (isPaid) {
-        // Light green badge
         doc.setFillColor(220, 252, 231); // green-100
-        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1, 1, 'F');
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.5, 1.5, 'F');
         doc.setTextColor(21, 128, 61); // green-700
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
-        doc.text('PAID', badgeX + (badgeW / 2), badgeY + 3.4, { align: 'center' });
+        doc.text('PAID', badgeX + (badgeW / 2), badgeY + 3.7, { align: 'center' });
       } else {
-        // Light red badge
         doc.setFillColor(254, 226, 226); // red-100
-        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1, 1, 'F');
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.5, 1.5, 'F');
         doc.setTextColor(185, 28, 28); // red-700
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
-        doc.text('PENDING', badgeX + (badgeW / 2), badgeY + 3.4, { align: 'center' });
+        doc.text('PENDING', badgeX + (badgeW / 2), badgeY + 3.7, { align: 'center' });
       }
 
-      y += 7.6;
+      y += 8.5;
     }
 
-    // Outer table border enclosing the content
+    // Final Page Footer
     doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.rect(12, tableStartY, 124, y - 4 - tableStartY, 'S');
-
-    // 5. Minimal Modern Footer
+    doc.setLineWidth(0.2);
+    doc.line(20, 282, 190, 282);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
-    doc.text('This is an official system generated statement and does not require a physical signature.', 74, 202, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setTextColor(textLight[0], textLight[1], textLight[2]);
+    doc.text('System generated statement. Securely processed by ChitFlow.', 105, 287, { align: 'center' });
+    doc.text(`Page ${pageNum}`, 190, 287, { align: 'right' });
 
     doc.save(`${member.name.replace(/\s+/g, '_')}_Chit_Statement.pdf`);
     toast.success("Statement PDF exported successfully!");

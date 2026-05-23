@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Lock, ArrowRight, Building, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Building, ShieldCheck, ArrowLeft, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ export default function AgentRegisterPage() {
     lastName: '',
     businessName: '',
     email: '',
+    phone: '',
     password: '',
     inviteCode: ''
   });
@@ -36,9 +37,15 @@ export default function AgentRegisterPage() {
     if (!formData.businessName) newErrors.businessName = 'Business name required';
     
     if (!formData.email) {
-      newErrors.email = 'Email or Mobile is required';
-    } else if (!formData.email.includes('@') && !/^\d{10}$/.test(formData.email)) {
-      newErrors.email = 'Enter a valid email or 10-digit mobile number';
+      newErrors.email = 'Email is required';
+    } else if (!formData.email.includes('@')) {
+      newErrors.email = 'Enter a valid email address';
+    }
+
+    if (!formData.phone) {
+      newErrors.phone = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = 'Enter a valid 10-digit mobile number';
     }
 
     if (!formData.password) newErrors.password = 'Password required';
@@ -55,8 +62,8 @@ export default function AgentRegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email.includes('@') ? formData.email : undefined,
-          phone: !formData.email.includes('@') ? formData.email : undefined,
+          email: formData.email,
+          phone: formData.phone,
           password: formData.password,
           role: 'ADMIN',
           inviteCode: formData.inviteCode
@@ -199,19 +206,19 @@ export default function AgentRegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Email or Mobile</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Email Address</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Mail className="text-slate-500 group-focus-within:text-blue-400 transition-colors" size={16} />
                   </div>
                   <input 
-                    type="text" 
+                    type="email" 
                     value={formData.email}
                     onChange={(e) => {
                       setFormData({...formData, email: e.target.value});
                       if (errors.email) setErrors({...errors, email: ''});
                     }}
-                    placeholder="agent@company.com or 9876543210" 
+                    placeholder="agent@company.com" 
                     className={cn(
                       "w-full h-12 pl-11 pr-4 rounded-2xl bg-white/5 border text-sm text-white focus:outline-none transition-all placeholder:text-slate-600",
                       errors.email 
@@ -221,6 +228,31 @@ export default function AgentRegisterPage() {
                   />
                 </div>
                 {errors.email && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] font-bold text-red-400 uppercase tracking-wider ml-2">{errors.email}</motion.p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Mobile Number</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Phone className="text-slate-500 group-focus-within:text-blue-400 transition-colors" size={16} />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={formData.phone}
+                    onChange={(e) => {
+                      setFormData({...formData, phone: e.target.value});
+                      if (errors.phone) setErrors({...errors, phone: ''});
+                    }}
+                    placeholder="9876543210" 
+                    className={cn(
+                      "w-full h-12 pl-11 pr-4 rounded-2xl bg-white/5 border text-sm text-white focus:outline-none transition-all placeholder:text-slate-600",
+                      errors.phone 
+                        ? "border-red-500 focus:ring-4 focus:ring-red-500/10 bg-red-500/5" 
+                        : "border-white/10 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white/10 hover:border-white/20"
+                    )}
+                  />
+                </div>
+                {errors.phone && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] font-bold text-red-400 uppercase tracking-wider ml-2">{errors.phone}</motion.p>}
               </div>
               
               <div className="space-y-2">

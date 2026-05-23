@@ -34,7 +34,7 @@ const features = [
   },
   {
     title: 'Smart Auctions',
-    desc: 'Fair winner selection with dividend calculations built in.',
+    desc: 'Fair winner selection and lift tracking built in.',
     icon: Zap,
   },
   {
