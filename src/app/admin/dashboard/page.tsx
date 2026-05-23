@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
@@ -34,6 +35,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { jsPDF } from 'jspdf';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { GroupsCatalogSkeleton, PaymentsTableSkeleton } from '@/components/ui/Skeleton';
 import { AdminStatCard, AdminMetricCard } from '@/components/admin/AdminStatCard';
@@ -41,6 +43,7 @@ import { CustomSelect } from '@/components/ui/CustomSelect';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
+  const { data: session } = useSession();
   // Navigation states
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
@@ -63,6 +66,7 @@ export default function Dashboard() {
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [groupErrors, setGroupErrors] = useState<Record<string, string>>({});
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false);
 
   // Member states
   const [members, setMembers] = useState<any[]>([]);
@@ -120,6 +124,8 @@ export default function Dashboard() {
   const [customAmounts, setCustomAmounts] = useState<{ [userId: string]: string }>({});
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>('none');
   const [winnerMessageModal, setWinnerMessageModal] = useState<{ isOpen: boolean, winner: any, text: string } | null>(null);
+  const [liftAmountInput, setLiftAmountInput] = useState<string>('');
+  const [isApplyingDividend, setIsApplyingDividend] = useState<boolean>(false);
 
   useEffect(() => {
     fetchGroups();
@@ -226,6 +232,7 @@ export default function Dashboard() {
 
   const handleDeleteGroup = async () => {
     if (!groupToDelete) return;
+    setIsDeletingGroup(true);
     try {
       const res = await fetch(`/api/groups?id=${groupToDelete.id}`, {
         method: 'DELETE',
@@ -243,6 +250,8 @@ export default function Dashboard() {
       }
     } catch (err) {
       toast.error("Something went wrong");
+    } finally {
+      setIsDeletingGroup(false);
     }
   };
 
@@ -414,6 +423,104 @@ export default function Dashboard() {
     }
   };
 
+  const handleWinnerAndDividendChange = async (winnerId: string, liftAmount: number) => {
+    if (!selectedGroup) return;
+    if (isNaN(liftAmount) || liftAmount <= 0) {
+      toast.error("Please enter a valid lift amount first.");
+      return;
+    }
+    
+    // Calculate dividend and dues
+    const poolAmount = selectedGroup.totalAmount;
+    const dividend = Math.max(poolAmount - liftAmount, 0);
+    const perMemberDiscount = dividend > 0 ? (dividend / members.length) : 0;
+    const normalDue = selectedGroup.monthlyContribution;
+    const discountedDue = Math.max(normalDue - perMemberDiscount, 0);
+
+    setSelectedWinnerId(winnerId);
+    setIsApplyingDividend(true);
+
+    try {
+      // 1. Update winner in the database (Auction record)
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: selectedGroup.id,
+          month: selectedMonth,
+          winnerId,
+          prizeValue: winnerId === 'none' ? 0 : liftAmount,
+          winningBid: winnerId === 'none' ? 0 : dividend,
+          dividend: winnerId === 'none' ? 0 : dividend,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to update winner');
+      }
+
+      // 2. If a winner is set, batch update payments for all other members to the discounted due!
+      if (winnerId !== 'none') {
+        const batchPayments = members
+          .filter(m => m.id !== winnerId)
+          .map(m => {
+            const payment = m.payments?.find((p: any) => p.month === selectedMonth);
+            return {
+              userId: m.id,
+              amount: discountedDue,
+              status: payment?.status || 'PENDING'
+            };
+          });
+
+        if (batchPayments.length > 0) {
+          const batchRes = await fetch('/api/admin/customers', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              groupId: selectedGroup.id,
+              month: selectedMonth,
+              payments: batchPayments
+            })
+          });
+          
+          if (!batchRes.ok) {
+            toast.error("Winner set, but failed to apply discounted dues to other members.");
+          } else {
+            toast.success(`Winner set! Dividend of ${formatCurrency(dividend)} applied automatically. Non-winner dues set to ${formatCurrency(discountedDue)}.`);
+          }
+        } else {
+          toast.success("Winner updated successfully!");
+        }
+      } else {
+        toast.success("Winner cleared successfully!");
+      }
+
+      // 3. Trigger WhatsApp notification modal for the winner
+      if (winnerId !== 'none') {
+        const winner = members.find((m) => m.id === winnerId);
+        if (winner) {
+          const monthNames = ['January','February','March','April','May','June',
+                              'July','August','September','October','November','December'];
+          const now = new Date();
+          const calMonth = monthNames[now.getMonth()];
+          const calYear = now.getFullYear();
+          const hasChanged = selectedGroup.liftedContribution && selectedGroup.liftedContribution !== selectedGroup.monthlyContribution;
+          const nextMonthDue = hasChanged ? selectedGroup.liftedContribution : selectedGroup.monthlyContribution;
+          const dueLabel = hasChanged ? 'updated contribution' : 'contribution';
+          const text = `Hi ${winner.name}, Congratulations! 🎉\n\nYou have lifted the chit for Month ${selectedMonth} of ${selectedGroup?.duration} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}" for ₹${liftAmount.toLocaleString('en-IN')}.\n\nPlease make sure you pay your ${dueLabel} of ₹${nextMonthDue} from next month onwards, without any delay. 🙏`;
+          setWinnerMessageModal({ isOpen: true, winner, text });
+        }
+      }
+
+      fetchGroupMembers(selectedGroup.id);
+    } catch (error: any) {
+      toast.error(error.message || 'Connection error');
+    } finally {
+      setIsApplyingDividend(false);
+    }
+  };
+
   const exportToCSV = () => {
     if (!selectedGroup) return;
 
@@ -457,46 +564,234 @@ export default function Dashboard() {
   const sendWhatsAppStatusMessage = (member: any) => {
     const payment = member.payments?.find((p: any) => p.month === selectedMonth);
     const isPaid = payment?.status === 'PAID';
-    const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
+    const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution || 0;
     const totalMonths = selectedGroup?.duration;
+    const dashboardUrl = `${window.location.origin}/auth/member/login`;
 
-    const monthNames = ['January','February','March','April','May','June',
-                        'July','August','September','October','November','December'];
-    const now = new Date();
-    const calMonth = monthNames[now.getMonth()];
-    const calYear = now.getFullYear();
+    const text = `*ChitFlow Member Dashboard Summary* 📊\n\n` +
+                 `*Group:* ${selectedGroup?.name}\n` +
+                 `*Member:* ${member.name}\n` +
+                 `*Month:* ${selectedMonth} of ${totalMonths}\n` +
+                 `*Amount:* ₹${amountVal.toLocaleString('en-IN')}\n` +
+                 `*Payment Status:* ${isPaid ? 'PAID ✅' : 'PENDING ⏳'}\n\n` +
+                 `View your full dashboard here: ${dashboardUrl}`;
 
-    let text = '';
-    if (isPaid) {
-      text = `Hi ${member.name},\n\nWe have received your payment of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}".\n\nThank you! ✅`;
-    } else {
-      text = `Hi ${member.name},\n\nYour chit contribution of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}" is pending.\n\nPlease pay at your earliest convenience. 🙏`;
-    }
-    const url = `https://wa.me/91${member.phone}?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/91${member.phone || member.mobile}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
-  const copyStatusMessage = (member: any) => {
-    const payment = member.payments?.find((p: any) => p.month === selectedMonth);
-    const isPaid = payment?.status === 'PAID';
-    const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution;
-    const totalMonths = selectedGroup?.duration;
+  const exportToPDF = (member: any) => {
+    const totalMonths = selectedGroup?.duration || 10;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a5'
+    });
 
-    const monthNames = ['January','February','March','April','May','June',
-                        'July','August','September','October','November','December'];
-    const now = new Date();
-    const calMonth = monthNames[now.getMonth()];
-    const calYear = now.getFullYear();
+    // Color Palette
+    const slate900 = [15, 23, 42];
+    const slate600 = [71, 85, 105];
+    const slate500 = [100, 116, 139];
+    const borderGray = [226, 232, 240];
+    const rowAltGray = [248, 250, 252];
 
-    let text = '';
-    if (isPaid) {
-      text = `Hi ${member.name},\n\nWe have received your payment of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}".\n\nThank you! ✅`;
-    } else {
-      text = `Hi ${member.name},\n\nYour chit contribution of ₹${amountVal} for Month ${selectedMonth} of ${totalMonths} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}" is pending.\n\nPlease pay at your earliest convenience. 🙏`;
+    // Agent name logic
+    const agentName = session?.user?.name;
+    const firstName = agentName ? agentName.trim().split(/\s+/)[0] : '';
+    const brandName = firstName ? `${firstName.toUpperCase()} CHITFLOW` : 'CHITFLOW SYSTEM';
+
+    // 1. Accent line at very top
+    doc.setFillColor(slate900[0], slate900[1], slate900[2]);
+    doc.rect(0, 0, 148, 3, 'F');
+
+    // 2. Title Section
+    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(brandName, 12, 13);
+
+    // Agent info line (Email & Phone)
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+    const agentEmail = session?.user?.email || '';
+    const agentPhone = (session?.user as any)?.phone || '';
+    const agentContact = [agentEmail, agentPhone].filter(Boolean).join('   |   ');
+    doc.text(agentContact, 12, 18);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+    doc.text('STATEMENT OF CHIT ACCOUNT', 136, 13, { align: 'right' });
+
+    doc.setFontSize(7.5);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 136, 18, { align: 'right' });
+
+    // Divider
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.setLineWidth(0.3);
+    doc.line(12, 23, 136, 23);
+
+    // 3. Dual Card Block (Member and Group Info)
+    const cardY = 27;
+    const cardHeight = 22;
+    const cardWidth = 59;
+
+    // Member Info Card (Left)
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
+    doc.roundedRect(12, cardY, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+
+    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('MEMBER PARTICIPANT', 16, cardY + 5);
+
+    doc.setFontSize(8.5);
+    doc.text(member.name || 'N/A', 16, cardY + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+    doc.text(member.phone || member.mobile || 'N/A', 16, cardY + 16);
+
+    // Chit Group Card (Right)
+    doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
+    doc.roundedRect(77, cardY, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+
+    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('CHIT SCHEME DETAILS', 81, cardY + 5);
+
+    doc.setFontSize(8.5);
+    doc.text(selectedGroup?.name || 'N/A', 81, cardY + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+    doc.text(`Pool Value: Rs. ${(selectedGroup?.totalAmount || 0).toLocaleString('en-IN')}`, 81, cardY + 16);
+
+    // 4. Table Setup
+    let y = 58;
+    const tableHeaderHeight = 8;
+    
+    // Header background
+    doc.setFillColor(241, 245, 249);
+    doc.rect(12, y - 5, 124, tableHeaderHeight, 'F');
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.rect(12, y - 5, 124, tableHeaderHeight, 'S');
+
+    doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('CYCLE MONTH', 16, y);
+    doc.text('DUE AMOUNT (INR)', 60, y);
+    doc.text('PAYMENT STATUS', 132, y, { align: 'right' });
+
+    y += 6.5;
+    const tableStartY = 53;
+
+    // Render Rows Loop
+    for (let m = 1; m <= totalMonths; m++) {
+      const payment = member.payments?.find((p: any) => p.month === m);
+      const isPaid = payment?.status === 'PAID';
+      
+      let amountVal = payment?.amount;
+      if (amountVal === undefined) {
+        const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < m);
+        amountVal = hasWonBefore
+          ? (selectedGroup?.liftedContribution || selectedGroup?.monthlyContribution)
+          : selectedGroup?.monthlyContribution;
+      }
+
+      // Pagination Break (A5 limit)
+      if (y > 190) {
+        // Draw bottom boundary of current page table
+        doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+        doc.rect(12, tableStartY, 124, y - 4 - tableStartY, 'S');
+
+        doc.addPage();
+        
+        // Page accent bar
+        doc.setFillColor(slate900[0], slate900[1], slate900[2]);
+        doc.rect(0, 0, 148, 3, 'F');
+
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(`${brandName} - STATEMENT OF ACCOUNT (Contd.)`, 12, 10);
+
+        y = 22;
+
+        // Draw Table Header on New Page
+        doc.setFillColor(241, 245, 249);
+        doc.rect(12, y - 5, 124, tableHeaderHeight, 'F');
+        doc.rect(12, y - 5, 124, tableHeaderHeight, 'S');
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('CYCLE MONTH', 16, y);
+        doc.text('DUE AMOUNT (INR)', 60, y);
+        doc.text('PAYMENT STATUS', 132, y, { align: 'right' });
+
+        y += 6.5;
+      }
+
+      // Zebra striping for rows
+      if (m % 2 !== 0) {
+        doc.setFillColor(rowAltGray[0], rowAltGray[1], rowAltGray[2]);
+        doc.rect(12, y - 4.2, 124, 7.6, 'F');
+      }
+
+      // Soft divider between rows
+      doc.setDrawColor(241, 245, 249);
+      doc.line(12, y + 3.4, 136, y + 3.4);
+
+      // Print Row Text
+      doc.setTextColor(slate600[0], slate600[1], slate600[2]);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Month ${m}`, 16, y);
+      doc.text(`Rs. ${amountVal.toLocaleString('en-IN')}`, 60, y);
+
+      // Draw Capsule Status Badge
+      const badgeW = 18;
+      const badgeH = 4.8;
+      const badgeX = 132 - badgeW;
+      const badgeY = y - 3.4;
+
+      if (isPaid) {
+        // Light green badge
+        doc.setFillColor(220, 252, 231); // green-100
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1, 1, 'F');
+        doc.setTextColor(21, 128, 61); // green-700
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('PAID', badgeX + (badgeW / 2), badgeY + 3.4, { align: 'center' });
+      } else {
+        // Light red badge
+        doc.setFillColor(254, 226, 226); // red-100
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1, 1, 'F');
+        doc.setTextColor(185, 28, 28); // red-700
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('PENDING', badgeX + (badgeW / 2), badgeY + 3.4, { align: 'center' });
+      }
+
+      y += 7.6;
     }
 
-    navigator.clipboard.writeText(text);
-    toast.success("Reminder/Receipt copied to clipboard!");
+    // Outer table border enclosing the content
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.rect(12, tableStartY, 124, y - 4 - tableStartY, 'S');
+
+    // 5. Minimal Modern Footer
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text('This is an official system generated statement and does not require a physical signature.', 74, 202, { align: 'center' });
+
+    doc.save(`${member.name.replace(/\s+/g, '_')}_Chit_Statement.pdf`);
+    toast.success("Statement PDF exported successfully!");
   };
 
   // Sync custom amounts on month change
@@ -517,8 +812,11 @@ export default function Dashboard() {
       const currentWinner = members.find(m => m.liftedMonths?.includes(selectedMonth));
       if (currentWinner) {
         setSelectedWinnerId(currentWinner.id);
+        const liftDetails = currentWinner.lifts?.find((l: any) => l.month === selectedMonth);
+        setLiftAmountInput(liftDetails?.prizeValue ? liftDetails.prizeValue.toString() : '');
       } else {
         setSelectedWinnerId('none');
+        setLiftAmountInput('');
       }
     }
   }, [selectedMonth, members, selectedGroup]);
@@ -569,7 +867,7 @@ export default function Dashboard() {
     let paidCount = 0;
     let totalCollected = 0;
 
-    filteredMembers.forEach(m => {
+    members.forEach(m => {
       const payment = m.payments?.find((p: any) => p.month === selectedMonth);
       if (payment && payment.status === 'PAID') {
         paidCount++;
@@ -577,10 +875,10 @@ export default function Dashboard() {
       }
     });
 
-    const pendingCount = filteredMembers.length - paidCount;
+    const pendingCount = members.length - paidCount;
 
     return {
-      totalMembers: filteredMembers.length,
+      totalMembers: members.length,
       paidCount,
       pendingCount,
       totalCollected
@@ -839,9 +1137,9 @@ export default function Dashboard() {
                 {/* ---------------- PAYMENTS TRACKER TAB ---------------- */}
                 {activeTab === 'payments' && (
                   <div className="space-y-4 sm:space-y-5">
-
                     <div className="surface-card p-4 sm:p-5 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Active Month Selector */}
                         <div className="flex flex-col gap-1.5">
                           <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
                             <Calendar size={16} className="text-blue-600" /> Active month
@@ -855,72 +1153,61 @@ export default function Dashboard() {
                             }))}
                           />
                         </div>
+
+                        {/* Lifted Amount Input */}
                         <div className="flex flex-col gap-1.5">
                           <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
-                            <TrendingUp size={16} className="text-amber-600" /> Chit lifted by
+                            <IndianRupee size={16} className="text-indigo-600" /> Lifted Amount (₹)
                           </span>
-                          <CustomSelect
-                            value={selectedWinnerId}
-                            onChange={async (winnerId) => {
-                              setSelectedWinnerId(winnerId);
-                              try {
-                                const res = await fetch('/api/admin/customers', {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    groupId: selectedGroup.id,
-                                    month: selectedMonth,
-                                    winnerId,
-                                  }),
-                                });
-                                if (res.ok) {
-                                  toast.success(
-                                    winnerId === 'none'
-                                      ? 'Chit lift cleared successfully!'
-                                      : 'Chit lift winner updated successfully!'
-                                  );
-                                  if (winnerId !== 'none') {
-                                    const winner = members.find((m) => m.id === winnerId);
-                                    if (winner) {
-                                      const monthNames = ['January','February','March','April','May','June',
-                                                          'July','August','September','October','November','December'];
-                                      const now = new Date();
-                                      const calMonth = monthNames[now.getMonth()];
-                                      const calYear = now.getFullYear();
-                                      const hasChanged = selectedGroup.liftedContribution && selectedGroup.liftedContribution !== selectedGroup.monthlyContribution;
-                                      const nextMonthDue = hasChanged ? selectedGroup.liftedContribution : selectedGroup.monthlyContribution;
-                                      const dueLabel = hasChanged ? 'updated contribution' : 'contribution';
-                                      const text = `Hi ${winner.name}, Congratulations! 🎉\n\nYou have lifted the chit for Month ${selectedMonth} of ${selectedGroup?.duration} (${calMonth} ${calYear}) in the group "${selectedGroup?.name}"  lifted amount _________\nPlease make sure you pay your ${dueLabel} of ₹${nextMonthDue} from next month onwards, without any delay to make the chit flow easy and secure. 🙏`;
-                                      setWinnerMessageModal({ isOpen: true, winner, text });
-                                    }
-                                  }
-                                  fetchGroupMembers(selectedGroup.id);
-                                } else {
-                                  const errData = await res.json();
-                                  toast.error(errData.error || 'Failed to update winner');
-                                }
-                              } catch {
-                                toast.error('Connection error');
-                              }
-                            }}
-                            options={[
-                              { value: 'none', label: 'Unclaimed / None' },
-                              ...members.map((m) => ({ value: m.id, label: m.name })),
-                            ]}
-                          />
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">₹</span>
+                            <input
+                              type="number"
+                              value={liftAmountInput}
+                              onChange={(e) => setLiftAmountInput(e.target.value)}
+                              placeholder="Enter lift amount"
+                              className="w-full h-[42px] pl-7 pr-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Winner Selection dropdown */}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                            <TrendingUp size={16} className="text-amber-600" /> Winner member
+                          </span>
+                          {liftAmountInput && Number(liftAmountInput) > 0 ? (
+                            <CustomSelect
+                              value={selectedWinnerId}
+                              onChange={(winnerId) => handleWinnerAndDividendChange(winnerId, Number(liftAmountInput))}
+                              options={[
+                                { value: 'none', label: 'Unclaimed / None' },
+                                ...members.map((m) => ({ value: m.id, label: m.name })),
+                              ]}
+                            />
+                          ) : (
+                            <div className="h-[42px] px-3.5 flex items-center rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-400">
+                              Enter lift amount first
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={exportToCSV}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold uppercase tracking-wide transition-colors"
-                      >
-                        <Download size={16} />
-                        Download ledger
-                      </button>
-                      <p className="text-xs text-slate-500 sm:col-span-2">
-                        Lifted members use the updated contribution amount from the next cycle.
-                      </p>
+
+
+
+                      <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={exportToCSV}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold uppercase tracking-wide transition-colors"
+                        >
+                          <Download size={16} />
+                          Download ledger
+                        </button>
+                        <p className="text-xs text-slate-500 self-center">
+                          Lifted members use the updated contribution amount from the next cycle.
+                        </p>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -930,51 +1217,69 @@ export default function Dashboard() {
                       <AdminMetricCard label={`Collected M${selectedMonth}`} value={formatCurrency(stats.totalCollected)} icon={IndianRupee} iconClassName="bg-indigo-50 text-indigo-600" delay={0.2} />
                     </div>
 
-                    {/* --- Dividend Auto-Calculator --- */}
-                    {selectedWinnerId && selectedWinnerId !== 'none' && (() => {
-                      const winner = members.find(m => m.id === selectedWinnerId);
-                      const poolAmount = selectedGroup.totalAmount;
-                      const winnerLifts = winner?.liftedMonths?.length || 0;
-                      // Dividend = Pool - what winner actually bid (assume full pool for now)
-                      // Each remaining member's discount = dividend / total members
-                      const liftedAmount = selectedGroup.liftedContribution || selectedGroup.monthlyContribution;
-                      const dividend = poolAmount - (liftedAmount * selectedGroup.duration);
-                      const perMemberDiscount = dividend > 0 ? (dividend / members.length) : 0;
-                      const normalDue = selectedGroup.monthlyContribution;
-                      const discountedDue = Math.max(normalDue - perMemberDiscount, 0);
-
-                      return dividend > 0 ? (
-                        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
-                            <Sparkles size={20} className="text-amber-600 dark:text-amber-400" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">💡 Dividend Calculator — {winner?.name} lifted this month</p>
-                            <p className="text-slate-600 dark:text-slate-400 text-xs mt-1">
-                              Pool: <strong>{formatCurrency(poolAmount)}</strong> · Lifted Amount: <strong>{formatCurrency(liftedAmount * selectedGroup.duration)}</strong> · Dividend: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency(dividend)}</strong>
-                            </p>
-                            <p className="text-slate-600 dark:text-slate-400 text-xs mt-0.5">
-                              Each member saves <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(perMemberDiscount)}</strong> → discounted due: <strong className="text-blue-600 dark:text-blue-400">{formatCurrency(discountedDue)}</strong>
-                            </p>
-                          </div>
+                    {/* Search & Filter Toolbar */}
+                    <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                      {/* Search Bar */}
+                      <div className="relative w-full sm:max-w-xs">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                        <input
+                          type="text"
+                          placeholder="Search members..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-inner"
+                        />
+                        {memberSearchQuery && (
                           <button
-                            onClick={() => {
-                              const updated: { [id: string]: string } = {};
-                              members.forEach(m => {
-                                if (m.id !== selectedWinnerId) {
-                                  updated[m.id] = discountedDue.toFixed(2);
-                                }
-                              });
-                              setCustomAmounts(prev => ({ ...prev, ...updated }));
-                              toast.success(`Dividend applied! Due set to ${formatCurrency(discountedDue)} for all non-winners.`);
-                            }}
-                            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                            type="button"
+                            onClick={() => setMemberSearchQuery('')}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-wider"
                           >
-                            Apply Dividend
+                            Clear
                           </button>
-                        </div>
-                      ) : null;
-                    })()}
+                        )}
+                      </div>
+
+                      {/* Payment Filter Segmented Tabs */}
+                      <div className="flex bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-100 dark:border-slate-900 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentFilter('ALL')}
+                          className={cn(
+                            "flex-1 sm:flex-initial h-8 px-4 rounded-lg text-xs font-bold transition-all uppercase tracking-wider",
+                            paymentFilter === 'ALL'
+                              ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm border border-slate-200/50 dark:border-slate-700/50"
+                              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          )}
+                        >
+                          All ({members.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentFilter('PAID')}
+                          className={cn(
+                            "flex-1 sm:flex-initial h-8 px-4 rounded-lg text-xs font-bold transition-all uppercase tracking-wider",
+                            paymentFilter === 'PAID'
+                              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 shadow-sm"
+                              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          )}
+                        >
+                          Paid ({members.filter(m => m.payments?.some((p: any) => p.month === selectedMonth && p.status === 'PAID')).length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentFilter('PENDING')}
+                          className={cn(
+                            "flex-1 sm:flex-initial h-8 px-4 rounded-lg text-xs font-bold transition-all uppercase tracking-wider",
+                            paymentFilter === 'PENDING'
+                              ? "bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30 shadow-sm"
+                              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          )}
+                        >
+                          Pending ({members.filter(m => !m.payments?.some((p: any) => p.month === selectedMonth && p.status === 'PAID')).length})
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                       <div className="overflow-x-auto">
@@ -994,10 +1299,16 @@ export default function Dashboard() {
                                   <PaymentsTableSkeleton rows={4} />
                                 </td>
                               </tr>
-                            ) : filteredMembers.length === 0 ? (
+                            ) : members.length === 0 ? (
                               <tr>
                                 <td colSpan={4} className="py-20 text-center">
                                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider italic">No members in this group yet</p>
+                                </td>
+                              </tr>
+                            ) : filteredMembers.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="py-20 text-center">
+                                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider italic">No members match the selected filter</p>
                                 </td>
                               </tr>
                             ) : filteredMembers.map((member) => {
@@ -1117,11 +1428,11 @@ export default function Dashboard() {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => copyStatusMessage(member)}
-                                        title="Copy Reminder/Receipt Template"
-                                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                        onClick={() => exportToPDF(member)}
+                                        title="Export PDF Statement"
+                                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
                                       >
-                                        <Copy size={16} />
+                                        <Download size={16} />
                                       </button>
                                     </div>
                                   </td>
@@ -1136,9 +1447,13 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 gap-3 lg:hidden">
                       {isLoadingMembers ? (
                         <PaymentsTableSkeleton rows={5} />
-                      ) : filteredMembers.length === 0 ? (
+                      ) : members.length === 0 ? (
                         <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800">
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider italic">No members in this group yet</p>
+                        </div>
+                      ) : filteredMembers.length === 0 ? (
+                        <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider italic">No members match the selected filter</p>
                         </div>
                       ) : (
                         filteredMembers.map(member => {
@@ -1255,11 +1570,11 @@ export default function Dashboard() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => copyStatusMessage(member)}
-                                    title="Copy Reminder/Receipt Template"
-                                    className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center active:scale-[0.96]"
+                                    onClick={() => exportToPDF(member)}
+                                    title="Export PDF Statement"
+                                    className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center active:scale-[0.96] cursor-pointer"
                                   >
-                                    <Copy size={16} />
+                                    <Download size={16} />
                                   </button>
                                 </div>
                               </div>
@@ -1650,15 +1965,21 @@ export default function Dashboard() {
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setGroupToDelete(null)}
-                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
+                  disabled={isDeletingGroup}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider disabled:opacity-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteGroup}
-                  className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20"
+                  disabled={isDeletingGroup}
+                  className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Delete Group
+                  {isDeletingGroup ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    'Delete Group'
+                  )}
                 </button>
               </div>
             </motion.div>

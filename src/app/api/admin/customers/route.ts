@@ -63,13 +63,23 @@ export async function GET(req: Request) {
         .filter(a => a.winnerId === m.userId)
         .map(a => a.month);
 
+      const lifts = auctions
+        .filter(a => a.winnerId === m.userId)
+        .map(a => ({
+          month: a.month,
+          prizeValue: a.prizeValue || 0,
+          winningBid: a.winningBid || 0,
+          dividend: a.dividend || 0
+        }));
+
       return {
         ...m.user,
         name: m.customName || m.user.name,
         customName: m.customName,
         membershipId: m.id,
         payments: userPayments,
-        liftedMonths
+        liftedMonths,
+        lifts
       };
     });
 
@@ -90,7 +100,7 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, groupId, month, status, amount, winnerId, name, membershipId } = body;
+    const { userId, groupId, month, status, amount, winnerId, name, membershipId, payments, prizeValue, winningBid, dividend } = body;
 
     // CASE 3: Updating membership customName (edit name)
     if (name !== undefined) {
@@ -111,6 +121,44 @@ export async function PATCH(req: Request) {
 
     if (!groupId || month === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // CASE 4: Batch updating payments (for applying dividend to all non-winners)
+    if (payments !== undefined && Array.isArray(payments)) {
+      const targetMonth = Number(month);
+      const results = [];
+      for (const p of payments) {
+        const { userId: paymentUserId, amount: paymentAmount, status: paymentStatus } = p;
+        const existingPayment = await prisma.payment.findFirst({
+          where: {
+            userId: paymentUserId,
+            groupId,
+            month: targetMonth
+          }
+        });
+        let payment;
+        if (existingPayment) {
+          payment = await prisma.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              amount: Number(paymentAmount),
+              status: (paymentStatus || existingPayment.status) as any
+            }
+          });
+        } else {
+          payment = await prisma.payment.create({
+            data: {
+              userId: paymentUserId,
+              groupId,
+              month: targetMonth,
+              amount: Number(paymentAmount),
+              status: (paymentStatus || 'PENDING') as any
+            }
+          });
+        }
+        results.push(payment);
+      }
+      return NextResponse.json({ message: "Batch payments updated successfully!", results });
     }
 
     // CASE 1: Updating the Chit Lift winner for the month
@@ -143,13 +191,18 @@ export async function PATCH(req: Request) {
         }
       }
 
-
+      const pVal = prizeValue !== undefined ? Number(prizeValue) : 0;
+      const wBid = winningBid !== undefined ? Number(winningBid) : 0;
+      const divVal = dividend !== undefined ? Number(dividend) : 0;
 
       if (existingAuction) {
         auction = await prisma.auction.update({
           where: { id: existingAuction.id },
           data: {
-            winnerId: winnerVal
+            winnerId: winnerVal,
+            prizeValue: winnerVal ? pVal : 0,
+            winningBid: winnerVal ? wBid : 0,
+            dividend: winnerVal ? divVal : 0
           }
         });
       } else {
@@ -158,7 +211,9 @@ export async function PATCH(req: Request) {
             groupId,
             month: targetMonth,
             winnerId: winnerVal,
-            prizeValue: 0,
+            prizeValue: winnerVal ? pVal : 0,
+            winningBid: winnerVal ? wBid : 0,
+            dividend: winnerVal ? divVal : 0,
             status: "CLOSED"
           }
         });
