@@ -11,21 +11,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { auctionId, status } = await req.json();
+    const { auctionId, status, winnerId } = await req.json();
 
     if (status === "CLOSED") {
-      // 1. Find the highest bid
-      const highestBid = await prisma.bid.findFirst({
-        where: { auctionId },
-        orderBy: { amount: 'desc' },
-        include: { user: true }
-      });
-
-      if (!highestBid) {
-        return NextResponse.json({ error: "No bids found to close auction" }, { status: 400 });
-      }
-
-      // 2. Update auction with winner and dividend
       const auction = await prisma.auction.findUnique({
         where: { id: auctionId },
         include: { group: { include: { members: true } } }
@@ -33,17 +21,38 @@ export async function PATCH(req: Request) {
 
       if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-      // Check if this highest bidder has already won a closed auction in this group!
+      let winnerUser: any = null;
+      let winningBidAmount = 0;
+
+      if (winnerId) {
+        winnerUser = await prisma.user.findUnique({ where: { id: winnerId } });
+      } else {
+        const highestBid = await prisma.bid.findFirst({
+          where: { auctionId },
+          orderBy: { amount: 'desc' },
+          include: { user: true }
+        });
+        if (highestBid) {
+          winnerUser = highestBid.user;
+          winningBidAmount = highestBid.amount;
+        }
+      }
+
+      if (!winnerUser) {
+        return NextResponse.json({ error: "No winner selected and no bids found to close auction" }, { status: 400 });
+      }
+
+      // Check if this winner has already won a closed auction in this group!
       const alreadyWon = await prisma.auction.findFirst({
         where: {
           groupId: auction.groupId,
-          winnerId: highestBid.userId,
+          winnerId: winnerUser.id,
           status: "CLOSED"
         }
       });
 
       if (alreadyWon) {
-        return NextResponse.json({ error: `${highestBid.user.name} has already won/lifted a chit in this group` }, { status: 400 });
+        return NextResponse.json({ error: `${winnerUser.name} has already won/lifted a chit in this group` }, { status: 400 });
       }
 
       // Get all previous winners in this group to apply updated amount (liftedContribution)
@@ -59,15 +68,19 @@ export async function PATCH(req: Request) {
       });
       const previousWinnerIds = new Set(previousAuctions.map(a => a.winnerId).filter(Boolean) as string[]);
 
-      const dividendPerMember = 0;
       const amountToPayRegular = auction.group.monthlyContribution;
 
       const paymentOperations = auction.group.members.map(member => {
         const hasWonBefore = previousWinnerIds.has(member.userId);
-        const isCurrentWinner = member.userId === highestBid.userId;
-        const amount = (hasWonBefore || isCurrentWinner)
-          ? (auction.group.liftedContribution || auction.group.monthlyContribution) 
-          : amountToPayRegular;
+        
+        let amount = amountToPayRegular;
+        // In Variation 1, previous winners pay liftedContribution.
+        // In Variation 2, everyone pays monthlyContribution (fixed pay).
+        if ((auction.group as any).calculationType === 'VARIATION_1') {
+          if (hasWonBefore) {
+            amount = auction.group.liftedContribution || auction.group.monthlyContribution;
+          }
+        }
 
         return prisma.payment.create({
           data: {
@@ -86,8 +99,8 @@ export async function PATCH(req: Request) {
           where: { id: auctionId },
           data: {
             status: "CLOSED",
-            winnerId: highestBid.userId,
-            winningBid: 0,
+            winnerId: winnerUser.id,
+            winningBid: winningBidAmount,
             dividend: 0,
           }
         }),
@@ -100,7 +113,7 @@ export async function PATCH(req: Request) {
         ...paymentOperations
       ]);
 
-      return NextResponse.json({ message: "Auction closed and payments generated!", winner: highestBid.user.name });
+      return NextResponse.json({ message: "Auction closed and payments generated!", winner: winnerUser.name });
     }
 
     // Otherwise just update status (e.g., to OPEN)

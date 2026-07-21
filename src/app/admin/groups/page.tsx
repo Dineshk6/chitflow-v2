@@ -60,7 +60,9 @@ function GroupsPageContent() {
       durationMonths: formData.get('durationMonths'),
       monthlyContribution: formData.get('monthlyContribution'),
       liftedContribution: formData.get('liftedContribution'),
-      startDate: formData.get('startDate'),
+      calculationType: formData.get('calculationType'),
+      startBid: formData.get('startBid'),
+      commissionPct: formData.get('commissionPct'),
     };
 
     try {

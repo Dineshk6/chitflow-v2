@@ -142,6 +142,15 @@ export async function PATCH(
     if (body.liftedContribution !== undefined) {
       dataToUpdate.liftedContribution = body.liftedContribution !== null ? parseFloat(body.liftedContribution) : null;
     }
+    if (body.calculationType !== undefined) {
+      dataToUpdate.calculationType = body.calculationType;
+    }
+    if (body.startBid !== undefined) {
+      dataToUpdate.startBid = body.startBid !== null ? parseFloat(body.startBid) : null;
+    }
+    if (body.commissionPct !== undefined) {
+      dataToUpdate.commissionPct = body.commissionPct !== null ? parseFloat(body.commissionPct) : null;
+    }
 
     const updatedGroup = await prisma.chitGroup.update({
       where: { id },

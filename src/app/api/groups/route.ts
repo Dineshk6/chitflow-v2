@@ -57,6 +57,9 @@ export async function POST(req: Request) {
       monthlyContribution,
       liftedContribution,
       startDate,
+      calculationType,
+      startBid,
+      commissionPct,
     } = body;
 
     // Validation
@@ -69,6 +72,9 @@ export async function POST(req: Request) {
     const durationNum = parseInt(durationMonths);
     const monthlyContributionNum = parseFloat(monthlyContribution);
     const liftedContributionNum = liftedContribution ? parseFloat(liftedContribution) : null;
+    const startBidNum = startBid ? parseFloat(startBid) : null;
+    const commissionPctNum = commissionPct !== undefined && commissionPct !== null ? parseFloat(commissionPct) : 5.0;
+    const calculationTypeStr = calculationType || "VARIATION_1";
 
     if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
       return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
@@ -82,6 +88,9 @@ export async function POST(req: Request) {
         duration: durationNum,
         monthlyContribution: monthlyContributionNum,
         liftedContribution: liftedContributionNum,
+        calculationType: calculationTypeStr,
+        startBid: startBidNum,
+        commissionPct: commissionPctNum,
         startDate: startDate ? new Date(startDate) : null,
         status: "UPCOMING",
         adminId: session.user.id,
@@ -123,6 +132,9 @@ export async function PUT(req: Request) {
       durationMonths,
       monthlyContribution,
       liftedContribution,
+      calculationType,
+      startBid,
+      commissionPct,
     } = body;
 
     if (!id || !name || !totalValue || !membersLimit || !durationMonths || !monthlyContribution) {
@@ -134,6 +146,9 @@ export async function PUT(req: Request) {
     const durationNum = parseInt(durationMonths);
     const monthlyContributionNum = parseFloat(monthlyContribution);
     const liftedContributionNum = liftedContribution ? parseFloat(liftedContribution) : null;
+    const startBidNum = startBid ? parseFloat(startBid) : null;
+    const commissionPctNum = commissionPct !== undefined && commissionPct !== null ? parseFloat(commissionPct) : 5.0;
+    const calculationTypeStr = calculationType || "VARIATION_1";
 
     if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
       return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
@@ -148,6 +163,9 @@ export async function PUT(req: Request) {
         duration: durationNum,
         monthlyContribution: monthlyContributionNum,
         liftedContribution: liftedContributionNum,
+        calculationType: calculationTypeStr,
+        startBid: startBidNum,
+        commissionPct: commissionPctNum,
       } as any
     });
 

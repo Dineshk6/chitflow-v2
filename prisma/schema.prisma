@@ -52,11 +52,14 @@ model ChitGroup {
   totalAmount         Float
   monthlyContribution Float
   liftedContribution  Float?
+  calculationType     String        @default("VARIATION_1")
+  startBid            Float?
   duration            Int
   membersLimit        Int           @default(20)
   currentMonth        Int           @default(1)
   startDate           DateTime?
   status              GroupStatus   @default(UPCOMING)
+  commissionPct       Float         @default(5.0)
   adminId             String        @db.ObjectId
   admin               User          @relation("AdminGroups", fields: [adminId], references: [id])
   createdAt           DateTime      @default(now())

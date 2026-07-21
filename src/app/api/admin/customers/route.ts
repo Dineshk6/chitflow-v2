@@ -100,23 +100,40 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, groupId, month, status, amount, winnerId, name, membershipId, payments, prizeValue, winningBid, dividend } = body;
+    const { userId, groupId, month, status, amount, winnerId, name, phone, membershipId, payments, prizeValue, winningBid, dividend } = body;
 
-    // CASE 3: Updating membership customName (edit name)
-    if (name !== undefined) {
+    // CASE 3: Updating membership customName (edit name) and User phone
+    if (name !== undefined || phone !== undefined) {
       if (!membershipId && (!userId || !groupId)) {
         return NextResponse.json({ error: "Missing membershipId or userId/groupId" }, { status: 400 });
       }
 
-      const membership = await prisma.groupMember.update({
-        where: membershipId 
-          ? { id: membershipId } 
-          : { userId_groupId: { userId, groupId } },
-        data: {
-          customName: name.trim() || null
+      let membership;
+      
+      // Update customName on GroupMember if name is provided
+      if (name !== undefined) {
+        membership = await prisma.groupMember.update({
+          where: membershipId 
+            ? { id: membershipId } 
+            : { userId_groupId: { userId, groupId } },
+          data: {
+            customName: name.trim() || null
+          }
+        });
+      }
+
+      // Update phone on User if phone is provided
+      if (phone !== undefined) {
+        const targetUserId = userId || (membershipId ? (await prisma.groupMember.findUnique({ where: { id: membershipId } }))?.userId : null);
+        if (targetUserId) {
+          await prisma.user.update({
+            where: { id: targetUserId },
+            data: { phone: phone.trim() || null }
+          });
         }
-      });
-      return NextResponse.json({ message: "Member name updated successfully!", membership });
+      }
+
+      return NextResponse.json({ message: "Member details updated successfully!", membership });
     }
 
     if (!groupId || month === undefined) {
