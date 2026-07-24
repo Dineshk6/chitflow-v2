@@ -2,14 +2,14 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, ChevronRight, Layers, Loader2, Settings } from 'lucide-react';
+import { Bell, LogOut, Layers, Loader2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from './NavigationProgress';
 import { useSession } from 'next-auth/react';
 import { clearAllAuthSessions } from '@/lib/auth-client';
 
-const springSmooth = { type: 'spring' as const, stiffness: 380, damping: 30 };
+const springSmooth = { type: 'spring' as const, stiffness: 300, damping: 32 };
 
 const navItems = [
   { name: 'Groups & Payments', icon: Layers, href: '/admin/dashboard' },
@@ -17,105 +17,94 @@ const navItems = [
   { name: 'Settings', icon: Settings, href: '/admin/settings' },
 ];
 
+/* ── Clean Light Mark ── */
+function ChitFlowMark({ size = 34 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      <defs>
+        <linearGradient id="sbMarkGradLight" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#4f46e5" />
+        </linearGradient>
+      </defs>
+      <rect width="44" height="44" rx="12" fill="url(#sbMarkGradLight)" />
+      <path d="M 10 15 L 17 22 L 10 29" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+      <path d="M 19 15 L 26 22 L 19 29" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="33" cy="22" r="2.2" fill="white" opacity="0.9" />
+    </svg>
+  );
+}
+
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, collapsed = false }: SidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const { startNavigation } = useNavigation();
-  const [collapsed, setCollapsed] = React.useState(false);
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
 
-  React.useEffect(() => {
-    setPendingHref(null);
-  }, [pathname]);
+  React.useEffect(() => { setPendingHref(null); }, [pathname]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      await clearAllAuthSessions();
-    } finally {
-      setIsLoggingOut(false);
-      setShowLogoutModal(false);
-      router.push('/');
-    }
+    try { await clearAllAuthSessions(); }
+    finally { setIsLoggingOut(false); setShowLogoutModal(false); router.push('/'); }
   };
 
   const userName = session?.user?.name || 'Agent';
-  const userInitials = userName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const userInitials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const SidebarContent = (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-200/80 dark:border-slate-800/80 overflow-hidden">
-      
-      {/* Brand Header */}
-      <div
-        className={cn(
-          'flex-shrink-0 border-b border-slate-100 dark:border-slate-900/80',
-          collapsed ? 'flex flex-col items-center gap-2 py-5 px-2' : 'flex items-center justify-between gap-3 p-5'
-        )}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <motion.div
-            layout
-            className={cn(
-              'bg-blue-600 text-white font-extrabold flex items-center justify-center shrink-0 transition-transform duration-300 shadow-sm hover:scale-105',
-              collapsed ? 'w-10 h-10 text-base rounded-xl' : 'w-9 h-9 text-sm rounded-xl'
-            )}
-          >
-            CF
-          </motion.div>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: '#ffffff',
+      borderRight: '1px solid #e2e8f0',
+      overflow: 'hidden',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
+      position: 'relative',
+    }}>
 
+      {/* ── Brand Header — 60px height to match Navbar exactly ── */}
+      <div style={{
+        flexShrink: 0,
+        height: 60,
+        padding: collapsed ? '0 12px' : '0 16px',
+        borderBottom: '1px solid #f1f5f9',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        gap: 12,
+        position: 'relative',
+        zIndex: 1,
+        transition: 'padding 0.25s ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <ChitFlowMark size={collapsed ? 36 : 32} />
           <AnimatePresence mode="wait">
             {!collapsed && (
-              <motion.div
-                key="brand"
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.12 }}
-                className="min-w-0 flex-1 overflow-hidden"
-              >
-                <h2 className="font-black text-slate-900 dark:text-white text-sm tracking-tight truncate">
-                  ChitFlow
-                </h2>
-                <div className="flex items-center mt-0.5">
-                  <span className="text-[8px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 px-1 py-0.5 rounded uppercase tracking-wider leading-none">
-                    Agent Portal
-                  </span>
-                </div>
+              <motion.div key="brand" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -6 }} transition={{ duration: 0.12 }}
+                style={{ minWidth: 0, overflow: 'hidden' }}>
+                <p style={{ color: '#0f172a', fontWeight: 900, fontSize: 16, letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>ChitFlow</p>
+                <p style={{ color: '#2563eb', fontWeight: 700, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: 0, marginTop: 3 }}>Admin Console</p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          className={cn(
-            'hidden lg:flex rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all duration-150 items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-800',
-            collapsed ? 'w-9 h-9' : 'w-8 h-8'
-          )}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <motion.span animate={{ rotate: collapsed ? 0 : 180 }} transition={springSmooth}>
-            <ChevronRight size={14} />
-          </motion.span>
-        </button>
       </div>
 
-      {/* Navigation Links */}
-      <nav className={cn('flex-1 overflow-y-auto py-6 space-y-1', collapsed ? 'px-2' : 'px-3')}>
+      {/* ── Navigation ── */}
+      <nav style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '16px 8px' : '20px 12px', display: 'flex', flexDirection: 'column', gap: 4, position: 'relative', zIndex: 1 }}>
+        {/* Section label */}
+        {!collapsed && (
+          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8', paddingLeft: 10, marginBottom: 6 }}>Menu</p>
+        )}
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const isPending = pendingHref === item.href;
@@ -125,76 +114,96 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               type="button"
               title={collapsed ? item.name : undefined}
               onClick={() => {
-                if (pathname.startsWith(item.href)) {
-                  onClose?.();
-                  return;
-                }
-                startNavigation();
-                setPendingHref(item.href);
-                onClose?.();
-                router.push(item.href);
+                if (pathname.startsWith(item.href)) { onClose?.(); return; }
+                startNavigation(); setPendingHref(item.href); onClose?.(); router.push(item.href);
               }}
               disabled={isPending}
-              className={cn(
-                'flex items-center rounded-xl transition-all duration-150 w-full group',
-                collapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5 text-left',
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/15 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900/60 font-semibold',
-                isPending && 'opacity-60'
-              )}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: 12,
+                padding: collapsed ? '10px' : '10px 12px',
+                borderRadius: 12, border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
+                cursor: isPending ? 'not-allowed' : 'pointer',
+                opacity: isPending ? 0.6 : 1,
+                background: isActive ? '#eff6ff' : 'transparent',
+                transition: 'all 0.15s ease',
+                textAlign: 'left',
+              }}
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; }}
+              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
-              <item.icon
-                size={16}
-                className={cn(
-                  'shrink-0 transition-transform duration-200 group-hover:scale-105',
-                  isActive ? 'text-white' : 'text-slate-400 dark:text-slate-550 group-hover:text-slate-700 dark:group-hover:text-slate-300'
-                )}
-              />
-              {!collapsed && <span className="text-xs font-semibold tracking-wide truncate">{item.name}</span>}
+              <item.icon size={18} style={{ flexShrink: 0, color: isActive ? '#2563eb' : '#64748b', transition: 'color 0.15s' }} />
+              {!collapsed && (
+                <span style={{ fontSize: 13, fontWeight: isActive ? 800 : 600, color: isActive ? '#1e40af' : '#475569', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {item.name}
+                </span>
+              )}
+              {!collapsed && isActive && (
+                <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#2563eb', flexShrink: 0 }} />
+              )}
             </button>
           );
         })}
+
+        {/* Spacer + platform card */}
+        <div style={{ flex: 1, minHeight: 24 }} />
+        {!collapsed && (
+          <div style={{ padding: '14px', borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#0f172a', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Platform Live</span>
+            </div>
+            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 500, lineHeight: 1.4, margin: 0 }}>All services running smoothly.</p>
+          </div>
+        )}
       </nav>
 
-      {/* Sidebar Footer */}
-      <div className={cn('flex-shrink-0 border-t border-slate-100 dark:border-slate-900/80 bg-slate-50/20 dark:bg-transparent', collapsed ? 'p-2 space-y-3' : 'p-4 space-y-3')}>
-        
-        {/* User Card */}
-        <div
-          className={cn(
-            'flex items-center rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/60 transition-all',
-            collapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
-          )}
-          title={collapsed ? userName : undefined}
-        >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-sm border border-slate-650 dark:border-slate-800">
+      {/* ── Footer ── */}
+      <div style={{
+        flexShrink: 0, padding: collapsed ? '12px 8px' : '14px 12px',
+        borderTop: '1px solid #f1f5f9',
+        display: 'flex', flexDirection: 'column', gap: 8,
+        position: 'relative', zIndex: 1,
+      }}>
+        {/* User card */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          gap: 10, padding: collapsed ? '8px' : '10px 12px',
+          borderRadius: 12, background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+        }} title={collapsed ? userName : undefined}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>
             {userInitials}
           </div>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{userName}</p>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mt-0.5">Agent</p>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
+              <p style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, marginTop: 1 }}>Admin Agent</p>
             </div>
           )}
         </div>
 
-        {/* Logout Button */}
+        {/* Logout */}
         <button
           type="button"
           onClick={() => setShowLogoutModal(true)}
           disabled={isLoggingOut}
           title={collapsed ? 'Sign out' : undefined}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 h-10 font-bold text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400',
-            'hover:border-red-200 hover:bg-red-50/30 hover:text-red-600 transition-all duration-200 active:scale-[0.98] rounded-xl'
-          )}
+          style={{
+            width: '100%', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            borderRadius: 10, border: '1px solid #e2e8f0',
+            background: '#ffffff', color: '#64748b',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fef2f2'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#fca5a5'; (e.currentTarget as HTMLButtonElement).style.color = '#dc2626'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#ffffff'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; (e.currentTarget as HTMLButtonElement).style.color = '#64748b'; }}
         >
-          {isLoggingOut ? <Loader2 size={14} className="animate-spin text-red-500" /> : <LogOut size={13} />}
+          {isLoggingOut ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <LogOut size={14} />}
           {!collapsed && <span>Sign out</span>}
         </button>
       </div>
-
     </div>
   );
 
@@ -202,8 +211,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 80 : 256 }}
-        transition={springSmooth}
+        animate={{ width: collapsed ? 72 : 240 }}
+        transition={{ type: 'tween', duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 z-20 overflow-hidden"
       >
         {SidebarContent}
@@ -211,94 +220,55 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            key="mobile-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 lg:hidden"
-          />
+          <motion.div key="mobile-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose} className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 lg:hidden" />
         )}
         {isOpen && (
-          <motion.aside
-            key="mobile-sidebar"
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={springSmooth}
-            className="fixed inset-y-0 left-0 w-64 z-50 lg:hidden shadow-2xl flex flex-col"
-          >
+          <motion.aside key="mobile-sidebar" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+            transition={springSmooth} className="fixed inset-y-0 left-0 w-60 z-50 lg:hidden shadow-2xl flex flex-col">
             {SidebarContent}
           </motion.aside>
         )}
       </AnimatePresence>
+
       <AnimatePresence>
         {showLogoutModal && (
-          <LogoutModal
-            onClose={() => setShowLogoutModal(false)}
-            onConfirm={handleLogout}
-            isLoggingOut={isLoggingOut}
-          />
+          <LogoutModal onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} isLoggingOut={isLoggingOut} />
         )}
       </AnimatePresence>
     </>
   );
 }
 
-function LogoutModal({
-  onClose,
-  onConfirm,
-  isLoggingOut,
-}: {
-  onClose: () => void;
-  onConfirm: () => void;
-  isLoggingOut: boolean;
-}) {
+function LogoutModal({ onClose, onConfirm, isLoggingOut }: { onClose: () => void; onConfirm: () => void; isLoggingOut: boolean; }) {
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-    >
+    <motion.div initial="hidden" animate="visible" exit="hidden"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+        onClick={onClose} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
       <motion.div
-        variants={{
-          hidden: { opacity: 0 },
-          visible: { opacity: 1 }
-        }}
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-      />
-      <motion.div
-        variants={{
-          hidden: { opacity: 0, scale: 0.95, y: 12 },
-          visible: { opacity: 1, scale: 1, y: 0 }
-        }}
+        variants={{ hidden: { opacity: 0, scale: 0.95, y: 12 }, visible: { opacity: 1, scale: 1, y: 0 } }}
         transition={springSmooth}
-        className="relative w-full max-w-sm bg-white dark:bg-slate-900 p-6 text-center shadow-2xl rounded-3xl border border-slate-100 dark:border-slate-800"
+        style={{ position: 'relative', width: '100%', maxWidth: 360, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 24, padding: '28px 24px', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.1)' }}
       >
-        <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mx-auto mb-4">
-          <LogOut size={28} />
+        <div style={{ width: 52, height: 52, borderRadius: 16, background: '#fef2f2', border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <LogOut size={22} style={{ color: '#dc2626' }} />
         </div>
-        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">Sign out?</h3>
-        <p className="text-xs text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">You&apos;ll need to sign in again to access the agent dashboard.</p>
-        <div className="grid grid-cols-2 gap-3 mt-6">
-          <button 
-            type="button" 
-            onClick={onClose} 
-            disabled={isLoggingOut} 
-            className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold active:scale-[0.98] transition-all duration-200 text-xs"
+        <h3 style={{ color: '#0f172a', fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em', margin: 0 }}>Sign out?</h3>
+        <p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 24px', lineHeight: 1.6 }}>You&apos;ll need to sign in again to access the admin dashboard.</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={isLoggingOut}
+            style={{ height: 42, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; }}
+          >Cancel</button>
+          <button type="button" onClick={onConfirm} disabled={isLoggingOut}
+            style={{ height: 42, borderRadius: 12, border: 'none', background: '#dc2626', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(220,38,38,0.25)', transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#b91c1c'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
           >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isLoggingOut}
-            className="h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 active:scale-[0.98] transition-all duration-200 text-xs"
-          >
-            {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : 'Sign out'}
+            {isLoggingOut ? <Loader2 size={15} className="animate-spin" /> : 'Sign out'}
           </button>
         </div>
       </motion.div>

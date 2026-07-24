@@ -13,6 +13,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
+
+  const handleMenuClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setCollapsed(c => !c);
+    } else {
+      setIsSidebarOpen(true);
+    }
+  };
 
   React.useEffect(() => {
     if (status === 'unauthenticated') {
@@ -57,9 +66,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-screen app-shell-bg">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} collapsed={collapsed} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
+        <Navbar onMenuClick={handleMenuClick} />
         <main className="flex-1 p-3 sm:p-5 md:p-6 lg:p-7 overflow-y-auto overflow-x-hidden min-w-0">
           <AnimatePresence mode="wait">
             <motion.div

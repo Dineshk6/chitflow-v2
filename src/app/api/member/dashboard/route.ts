@@ -10,6 +10,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'memberId is required' }, { status: 400 });
     }
 
+    const user = await prisma.user.findUnique({ where: { id: memberId } });
+
     // Get all groups this member belongs to, with payments
     const memberships = await prisma.groupMember.findMany({
       where: { userId: memberId } as any,
@@ -29,6 +31,37 @@ export async function GET(req: Request) {
         }
       }
     } as any);
+
+    // If user is an ADMIN (agent), also include groups they created as admin
+    if (user && user.role === 'ADMIN') {
+      const adminGroups = await prisma.chitGroup.findMany({
+        where: { adminId: memberId },
+        select: {
+          id: true,
+          name: true,
+          totalAmount: true,
+          monthlyContribution: true,
+          liftedContribution: true,
+          duration: true,
+          membersLimit: true,
+          status: true,
+          _count: { select: { members: true } }
+        }
+      });
+
+      const existingGroupIds = new Set(memberships.map((m: any) => m.groupId));
+      for (const ag of adminGroups) {
+        if (!existingGroupIds.has(ag.id)) {
+          memberships.push({
+            id: `admin-${ag.id}`,
+            userId: memberId,
+            groupId: ag.id,
+            status: 'ACTIVE',
+            group: ag
+          });
+        }
+      }
+    }
 
     // Get payments for each group
     const groupData = await Promise.all(
@@ -51,7 +84,7 @@ export async function GET(req: Request) {
         const paidPayments = payments.filter((p: { status: string }) => p.status === 'PAID');
         const paidCount = new Set(paidPayments.map((p: { month: number }) => p.month)).size;
         const totalPaid = paidPayments.reduce((sum: number, p: { amount?: number }) => sum + (p.amount || 0), 0);
-        const duration = membership.group.duration ?? 0;
+        const duration = membership.group?.duration ?? 0;
 
         return {
           group: membership.group,

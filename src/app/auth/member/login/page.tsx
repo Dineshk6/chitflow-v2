@@ -2,12 +2,29 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, ArrowRight, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Phone, ArrowRight, ShieldCheck, ArrowLeft, CheckCircle2, Home } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { clearAllAuthSessions } from '@/lib/auth-client';
+
+/* ── Custom Logo Mark ── */
+function ChitFlowMark({ size = 40 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="memMarkGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#6366f1" />
+        </linearGradient>
+      </defs>
+      <rect width="44" height="44" rx="13" fill="url(#memMarkGrad)" />
+      <path d="M 10 15 L 17 22 L 10 29" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+      <path d="M 19 15 L 26 22 L 19 29" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="33" cy="22" r="2.2" fill="white" opacity="0.85" />
+    </svg>
+  );
+}
 
 export default function MemberLoginPage() {
   const router = useRouter();
@@ -18,9 +35,11 @@ export default function MemberLoginPage() {
       router.replace('/member/dashboard');
     }
   }, [router]);
+
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [focused, setFocused] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +65,6 @@ export default function MemberLoginPage() {
         return;
       }
 
-      // Drop any leftover agent (NextAuth) session before member login
       await clearAllAuthSessions();
       localStorage.setItem('memberSession', JSON.stringify({ phone, memberId: data.memberId, name: data.name }));
       toast.success(`Welcome, ${data.name}!`);
@@ -59,106 +77,195 @@ export default function MemberLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center relative overflow-hidden p-6">
-      {/* Animated background orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/30 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-600/30 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+    <main style={{ minHeight: '100vh', background: '#05091a', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif', position: 'relative' }}>
+      
+      {/* ── Background Aurora Mesh ── */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+        background: [
+          'radial-gradient(ellipse 70% 55% at 15% 80%, rgba(37,99,235,0.18) 0%, transparent 65%)',
+          'radial-gradient(ellipse 55% 45% at 85% 15%, rgba(99,102,241,0.14) 0%, transparent 60%)',
+          '#05091a'
+        ].join(', ')
+      }} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="w-full max-w-sm relative z-10"
-      >
-        <div className="bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[32px] shadow-2xl p-8 relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+      {/* SVG noise grain */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.028, pointerEvents: 'none', zIndex: 0 }}>
+        <filter id="memGrain2">
+          <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#memGrain2)" />
+      </svg>
 
-          <div className="flex items-center justify-start mb-6">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-emerald-400 transition-colors group">
-              <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-              Back to Home
-            </Link>
+      {/* ════════ RESPONSIVE TOP NAV BAR (Icon Left, Home Right) ════════ */}
+      <header style={{
+        position: 'relative', zIndex: 30, width: '100%', height: 64, padding: '0 24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,9,26,0.6)', backdropFilter: 'blur(12px)'
+      }}>
+        {/* LEFT: Brand Logo & Title */}
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <ChitFlowMark size={32} />
+          <div>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: 16, letterSpacing: '-0.03em', lineHeight: 1, display: 'block' }}>ChitFlow</span>
+            <span style={{ color: '#6366f1', fontWeight: 700, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginTop: 2 }}>Member Portal</span>
           </div>
+        </Link>
 
-          <div className="text-center mb-8">
-            <Link href="/" className="block w-max mx-auto mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-emerald-500/30 transform -rotate-3 hover:rotate-0 transition-transform cursor-pointer">
-                C
-              </div>
-            </Link>
-            <h1 className="text-3xl font-black text-white tracking-tight mb-2">Member Portal</h1>
-            <p className="text-slate-400 font-medium text-sm">Enter your registered mobile number to view your chit history.</p>
-          </div>
+        {/* RIGHT: Back to Home Button */}
+        <Link href="/" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 14px', borderRadius: 10,
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)',
+          color: '#e2e8f0', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s ease'
+        }}>
+          <span>Home</span>
+          <ArrowRight size={14} />
+        </Link>
+      </header>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Mobile Number</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Phone className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
-                </div>
-                <input
-                  type="tel"
-                  value={phone}
-                  maxLength={10}
-                  onChange={(e) => {
-                    setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
-                    setError('');
-                  }}
-                  placeholder="9876543210"
-                  className={cn(
-                    'w-full h-14 pl-12 pr-4 rounded-2xl bg-white/5 border text-sm text-white focus:outline-none transition-all placeholder:text-slate-600',
-                    error
-                      ? 'border-red-500 focus:ring-4 focus:ring-red-500/10 bg-red-500/5'
-                      : 'border-white/10 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white/10 hover:border-white/20'
-                  )}
-                />
+      {/* Main Body Split */}
+      <div style={{ flex: 1, display: 'flex', width: '100%', position: 'relative', zIndex: 1 }}>
+
+        {/* ════════ LEFT PANEL ════════ */}
+        <div
+          className="hidden lg:flex flex-col justify-between"
+          style={{
+            width: '54%', padding: '60px 56px 40px', position: 'relative', overflow: 'hidden',
+            borderRight: '1px solid rgba(255,255,255,0.05)',
+          }}
+        >
+          <div style={{ position: 'absolute', top: -80, left: -60, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.13) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+          {/* Brand Header */}
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-center gap-3">
+            <ChitFlowMark size={40} />
+            <div>
+              <p style={{ color: 'white', fontWeight: 900, fontSize: 18, letterSpacing: '-0.04em', margin: 0, lineHeight: 1 }}>ChitFlow</p>
+              <p style={{ color: '#6366f1', fontWeight: 700, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', margin: 0, marginTop: 2 }}>Member Portal</p>
+            </div>
+          </motion.div>
+
+          {/* Hero copy */}
+          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="space-y-6 max-w-[440px]">
+            <div className="space-y-3">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 20, height: 2, background: 'linear-gradient(90deg,#3b82f6,#6366f1)', borderRadius: 2 }} />
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#60a5fa' }}>Read-Only Member Access</span>
               </div>
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-[10px] font-bold text-red-400 uppercase tracking-wider ml-2"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+              <h1 style={{ fontSize: 44, fontWeight: 900, color: 'white', lineHeight: 1.06, letterSpacing: '-0.035em', margin: 0 }}>
+                Track your chits in{' '}
+                <span style={{ background: 'linear-gradient(100deg, #60a5fa, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  real-time.
+                </span>
+              </h1>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black uppercase tracking-widest shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)] transition-all flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed hover:shadow-[0_0_60px_-15px_rgba(16,185,129,0.7)] hover:-translate-y-0.5 active:translate-y-0"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  View My Dashboard
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-xs text-slate-400">
-              Are you an agent?{' '}
-              <Link href="/auth/admin/login" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">
-                Agent Login
-              </Link>
+            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.75, margin: 0 }}>
+              Enter your registered 10-digit mobile number to access instant dividend records, upcoming payment due dates, and verified ledger histories.
             </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+              {[
+                'Instant monthly dividend calculation breakdown',
+                'Upcoming due dates and verified payment receipts',
+                'Printable scheme statements and winner records'
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <CheckCircle2 size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
+                  <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 500 }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Footer */}
+          <div style={{ color: '#475569', fontSize: 12, fontWeight: 600 }}>
+            © {new Date().getFullYear()} ChitFlow Systems. All rights reserved.
           </div>
         </div>
 
-        <p className="text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-8 flex items-center justify-center gap-2">
-          <ShieldCheck size={12} />
-          Read-only · Your data is safe
-        </p>
-      </motion.div>
-    </div>
+        {/* ════════ RIGHT PANEL (Form) ════════ */}
+        <div className="flex-1 flex items-center justify-center p-6 md:p-12 relative">
+          
+          <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4, delay: 0.1 }}
+            style={{ width: '100%', maxWidth: 400 }}
+          >
+            {/* Card Wrapper */}
+            <div style={{
+              position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 26, padding: '36px 30px', boxShadow: '0 32px 80px rgba(0,0,0,0.55)', overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
+
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 100, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', marginBottom: 14 }}>
+                  <ShieldCheck size={12} style={{ color: '#60a5fa' }} />
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#93c5fd' }}>Member Portal</span>
+                </div>
+                <h2 style={{ color: 'white', fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', margin: 0 }}>Lookup Account</h2>
+                <p style={{ color: '#64748b', fontSize: 13, fontWeight: 500, marginTop: 4 }}>Enter your registered 10-digit mobile number</p>
+              </div>
+
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>Mobile Number</label>
+                  <div style={{
+                    position: 'relative', display: 'flex', alignItems: 'center', borderRadius: 14,
+                    border: error ? '1px solid rgba(239,68,68,0.5)' : focused ? '1px solid rgba(99,102,241,0.65)' : '1px solid rgba(255,255,255,0.08)',
+                    background: error ? 'rgba(239,68,68,0.04)' : focused ? 'rgba(99,102,241,0.07)' : 'rgba(255,255,255,0.04)',
+                    transition: 'all 0.18s ease'
+                  }}>
+                    <Phone size={15} style={{ position: 'absolute', left: 14, color: focused ? '#818cf8' : '#64748b' }} />
+                    <input
+                      type="tel"
+                      value={phone}
+                      maxLength={10}
+                      onFocus={() => setFocused(true)}
+                      onBlur={() => setFocused(false)}
+                      onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                      placeholder="9876543210"
+                      style={{ width: '100%', height: 48, paddingLeft: 42, paddingRight: 14, background: 'transparent', border: 'none', outline: 'none', color: 'white', fontSize: 14, fontWeight: 600 }}
+                    />
+                  </div>
+                  {error && (
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#f87171', marginTop: 6, margin: '6px 0 0 2px' }}>{error}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%', height: 48, borderRadius: 14, background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
+                    color: 'white', fontSize: 13, fontWeight: 800, border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(37,99,235,0.35)',
+                    opacity: isLoading ? 0.7 : 1, transition: 'all 0.15s ease'
+                  }}
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Access Dashboard
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                <p style={{ color: '#64748b', fontSize: 13, fontWeight: 500, margin: 0 }}>
+                  Are you an organizer?{' '}
+                  <Link href="/auth/admin/login" style={{ color: '#60a5fa', fontWeight: 700, textDecoration: 'none' }}>
+                    Agent Portal
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+        </div>
+      </div>
+    </main>
   );
 }

@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       where: { groupId }
     });
 
-    // Format the response: combine user data with their payments and lift details
+    // Format response: each membership is a distinct chit ticket in the group
     const groupMembers = memberships.map(m => {
       const userPayments = payments
         .filter(p => p.userId === m.userId)
@@ -100,36 +100,63 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, groupId, month, status, amount, winnerId, name, phone, membershipId, payments, prizeValue, winningBid, dividend } = body;
+    const { userId, groupId, month, status, amount, winnerId, name, phone, membershipId, chitCount, payments, prizeValue, winningBid, dividend } = body;
 
-    // CASE 3: Updating membership customName (edit name) and User phone
-    if (name !== undefined || phone !== undefined) {
+    // CASE 3: Updating membership customName (edit name), User phone, and adding extra chits
+    if (name !== undefined || phone !== undefined || chitCount !== undefined) {
       if (!membershipId && (!userId || !groupId)) {
         return NextResponse.json({ error: "Missing membershipId or userId/groupId" }, { status: 400 });
       }
 
       let membership;
+      const targetUserId = userId || (membershipId ? (await prisma.groupMember.findUnique({ where: { id: membershipId } }))?.userId : null);
+      const targetGroupId = groupId || (membershipId ? (await prisma.groupMember.findUnique({ where: { id: membershipId } }))?.groupId : null);
       
       // Update customName on GroupMember if name is provided
-      if (name !== undefined) {
+      if (name !== undefined && membershipId) {
         membership = await prisma.groupMember.update({
-          where: membershipId 
-            ? { id: membershipId } 
-            : { userId_groupId: { userId, groupId } },
-          data: {
-            customName: name.trim() || null
-          }
+          where: { id: membershipId },
+          data: { customName: name.trim() || null }
         });
       }
 
       // Update phone on User if phone is provided
-      if (phone !== undefined) {
-        const targetUserId = userId || (membershipId ? (await prisma.groupMember.findUnique({ where: { id: membershipId } }))?.userId : null);
-        if (targetUserId) {
-          await prisma.user.update({
-            where: { id: targetUserId },
-            data: { phone: phone.trim() || null }
-          });
+      if (phone !== undefined && targetUserId) {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { phone: phone.trim() || null }
+        });
+      }
+
+      // Handle Chit Count Increase
+      if (chitCount !== undefined && targetUserId && targetGroupId) {
+        const existingCount = await prisma.groupMember.count({
+          where: { userId: targetUserId, groupId: targetGroupId }
+        });
+
+        if (chitCount > existingCount) {
+          const user = await prisma.user.findUnique({ where: { id: targetUserId } });
+          const diff = chitCount - existingCount;
+
+          // Check group limit
+          const group = await prisma.chitGroup.findUnique({ where: { id: targetGroupId } });
+          const totalGroupMembers = await prisma.groupMember.count({ where: { groupId: targetGroupId } });
+          
+          if (group && (totalGroupMembers + diff > (group.membersLimit || group.duration || 20))) {
+            return NextResponse.json({ error: `Cannot add more chits. Group limit of ${group.membersLimit} reached.` }, { status: 400 });
+          }
+
+          for (let i = 0; i < diff; i++) {
+            const ticketNum = existingCount + i + 1;
+            await prisma.groupMember.create({
+              data: {
+                userId: targetUserId,
+                groupId: targetGroupId,
+                status: "ACTIVE",
+                customName: `${user?.name} (Chit #${ticketNum})`,
+              }
+            });
+          }
         }
       }
 
@@ -182,7 +209,6 @@ export async function PATCH(req: Request) {
     if (winnerId !== undefined) {
       const targetMonth = Number(month);
       
-      // Find if an auction record already exists for this group and month
       const existingAuction = await prisma.auction.findFirst({
         where: {
           groupId,
@@ -243,7 +269,6 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Missing userId or status for payment update" }, { status: 400 });
     }
 
-    // Find if a payment already exists
     const existingPayment = await prisma.payment.findFirst({
       where: {
         userId,
@@ -282,7 +307,7 @@ export async function PATCH(req: Request) {
   }
 }
 
-// DELETE a member's association with a specific ChitGroup
+// DELETE a specific chit membership or all memberships of a user in a ChitGroup
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -294,21 +319,20 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
     const groupId = searchParams.get("groupId");
+    const membershipId = searchParams.get("membershipId");
+
+    if (membershipId) {
+      await prisma.groupMember.delete({
+        where: { id: membershipId }
+      });
+      return NextResponse.json({ message: "Chit membership removed successfully!" });
+    }
 
     if (!userId || !groupId) {
       return NextResponse.json({ error: "User ID and Group ID are required" }, { status: 400 });
     }
 
-    // Delete membership linking this user to this specific group
     await prisma.groupMember.deleteMany({
-      where: {
-        userId,
-        groupId
-      }
-    });
-
-    // Delete payments associated with this user inside this group
-    await prisma.payment.deleteMany({
       where: {
         userId,
         groupId

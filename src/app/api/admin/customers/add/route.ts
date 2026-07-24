@@ -12,7 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, phone, groupId } = await req.json();
+    const { name, phone, groupId, chitCount = 1 } = await req.json();
 
     if (!name || !phone || !groupId) {
       return NextResponse.json({ error: "Name, phone number, and Group ID are required" }, { status: 400 });
@@ -48,34 +48,53 @@ export async function POST(req: Request) {
       });
     }
 
-    // Check if they are already in the group
-    const existingMembership = await prisma.groupMember.findUnique({
-      where: {
-        userId_groupId: {
-          userId: user.id,
-          groupId: groupId
-        }
-      }
+    // Validate against group membersLimit
+    const group = await prisma.chitGroup.findUnique({
+      where: { id: groupId }
     });
 
-    if (existingMembership) {
-      return NextResponse.json({ error: "Member is already registered in this group" }, { status: 400 });
+    if (!group) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
 
-    // Link the member to the group
-    const membership = await prisma.groupMember.create({
-      data: {
-        userId: user.id,
-        groupId: groupId,
-        status: "ACTIVE",
-        customName: name.trim(),
-      }
+    const countToAdd = Math.max(1, Number(chitCount) || 1);
+
+    const totalGroupMembers = await prisma.groupMember.count({
+      where: { groupId }
     });
 
+    if (totalGroupMembers + countToAdd > (group.membersLimit || group.duration || 20)) {
+      return NextResponse.json({ error: `Cannot add more members. Group limit of ${group.membersLimit} reached.` }, { status: 400 });
+    }
+
+    // Count existing chits for this user in this group
+    const existingCount = await prisma.groupMember.count({
+      where: { userId: user.id, groupId }
+    });
+
+    const createdMemberships = [];
+
+    for (let i = 0; i < countToAdd; i++) {
+      const ticketNum = existingCount + i + 1;
+      const customLabel = (existingCount > 0 || countToAdd > 1) 
+        ? `${user.name} (Chit #${ticketNum})`
+        : user.name.trim();
+
+      const membership = await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: groupId,
+          status: "ACTIVE",
+          customName: customLabel,
+        }
+      });
+      createdMemberships.push(membership);
+    }
+
     return NextResponse.json({ 
-      message: "Member added to group successfully!", 
+      message: `${countToAdd} chit(s) added for member successfully!`, 
       user: { id: user.id, name: user.name, phone: user.phone },
-      membership
+      memberships: createdMemberships
     });
   } catch (error: any) {
     console.error("Admin group member onboarding error:", error);

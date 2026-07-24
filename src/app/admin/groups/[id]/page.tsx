@@ -237,19 +237,22 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleAddMember = async (userId: string) => {
+  const handleAddMember = async (userId: string, chitCount: number = 1) => {
     setIsAddingMember(true);
     try {
       const res = await fetch('/api/admin/groups/add-member', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, userId }),
+        body: JSON.stringify({ groupId, userId, chitCount }),
       });
+      const data = await res.json();
       if (res.ok) {
-        toast.success("Member added to group!");
+        toast.success(data.message || "Member added to group!");
         setIsMemberModalOpen(false);
         fetchGroupDetails();
         fetchGroupMembers(groupId);
+      } else {
+        toast.error(data.error || "Failed to add member");
       }
     } catch (error) {
       toast.error("Something went wrong");
@@ -258,10 +261,13 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleRemoveMember = async (userId: string, memberName: string) => {
-    if (!confirm(`Remove ${memberName} from this group? This will also delete their payment history for this group.`)) return;
+  const handleRemoveMember = async (userId: string, memberName: string, membershipId?: string) => {
+    if (!confirm(`Remove ${memberName} from this group?`)) return;
     try {
-      const res = await fetch(`/api/admin/customers?userId=${userId}&groupId=${groupId}`, {
+      const url = membershipId 
+        ? `/api/admin/customers?membershipId=${membershipId}&groupId=${groupId}`
+        : `/api/admin/customers?userId=${userId}&groupId=${groupId}`;
+      const res = await fetch(url, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -792,7 +798,14 @@ export default function GroupDetailsPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setIsMemberModalOpen(true)}
+                className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all text-sm flex items-center gap-2 shadow-md shadow-blue-500/20"
+              >
+                <Plus size={18} />
+                Add Member / Chit
+              </button>
               <button
                 onClick={() => downloadGroupSchedulePDF(group)}
                 className="h-12 px-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 text-sm"
@@ -1000,7 +1013,7 @@ export default function GroupDetailsPage() {
                         const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
 
                         return (
-                          <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                          <tr key={member.membershipId || member.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center">
@@ -1037,7 +1050,7 @@ export default function GroupDetailsPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING')}
                                   className={cn(
@@ -1053,6 +1066,13 @@ export default function GroupDetailsPage() {
                                   title="Send WhatsApp Reminder"
                                 >
                                   <MessageCircle size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveMember(member.id, member.name, member.membershipId)}
+                                  className="p-2 rounded-lg border border-slate-200 hover:bg-red-50 text-red-500 transition-colors"
+                                  title="Remove Chit"
+                                >
+                                  <Trash2 size={15} />
                                 </button>
                               </div>
                             </td>
@@ -1315,6 +1335,14 @@ export default function GroupDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* Member Selector Modal */}
+      <MemberSelectorModal
+        isOpen={isMemberModalOpen}
+        onClose={() => setIsMemberModalOpen(false)}
+        onSelect={(userId, chitCount) => handleAddMember(userId, chitCount)}
+        isSubmitting={isAddingMember}
+      />
     </AdminLayout>
   );
 }

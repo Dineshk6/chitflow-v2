@@ -42,7 +42,8 @@ import {
   Send,
   Trophy,
   Copy,
-  X
+  X,
+  Minus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -108,7 +109,7 @@ function DashboardContent() {
   // Member states
   const [members, setMembers] = useState<any[]>([]);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
-  const [memberFormData, setMemberFormData] = useState({ name: '', phone: '' });
+  const [memberFormData, setMemberFormData] = useState({ name: '', phone: '', chitCount: 1 });
   const [isSubmittingMember, setIsSubmittingMember] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<any | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
@@ -118,13 +119,19 @@ function DashboardContent() {
   const [editMemberModal, setEditMemberModal] = useState<{
     isOpen: boolean;
     membershipId: string;
+    userId: string;
     name: string;
     phone: string;
+    chitCount: number;
+    initialChitCount: number;
   }>({
     isOpen: false,
     membershipId: '',
+    userId: '',
     name: '',
     phone: '',
+    chitCount: 1,
+    initialChitCount: 1,
   });
   const [isUpdatingMemberDetails, setIsUpdatingMemberDetails] = useState(false);
 
@@ -137,13 +144,15 @@ function DashboardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           membershipId: editMemberModal.membershipId,
+          userId: editMemberModal.userId,
           name: editMemberModal.name,
           phone: editMemberModal.phone,
+          chitCount: editMemberModal.chitCount > editMemberModal.initialChitCount ? editMemberModal.chitCount : undefined
         }),
       });
       if (res.ok) {
         toast.success("Member details updated successfully!");
-        setEditMemberModal({ isOpen: false, membershipId: '', name: '', phone: '' });
+        setEditMemberModal({ isOpen: false, membershipId: '', userId: '', name: '', phone: '', chitCount: 1, initialChitCount: 1 });
         if (selectedGroup) {
           fetchGroupMembers(selectedGroup.id);
         }
@@ -354,7 +363,9 @@ function DashboardContent() {
       return;
     }
 
-    if (selectedGroup && members.length >= selectedGroup.membersLimit) {
+    const countToAdd = Math.max(1, Number(memberFormData.chitCount) || 1);
+
+    if (selectedGroup && members.length + countToAdd - 1 >= selectedGroup.membersLimit) {
       toast.error(`Cannot add more members. Group limit of ${selectedGroup.membersLimit} reached.`);
       return;
     }
@@ -367,14 +378,15 @@ function DashboardContent() {
         body: JSON.stringify({
           name: memberFormData.name,
           phone: memberFormData.phone,
-          groupId: selectedGroup.id
+          groupId: selectedGroup.id,
+          chitCount: countToAdd
         })
       });
 
       if (res.ok) {
-        toast.success("Member added to group successfully!");
+        toast.success(`${countToAdd} chit(s) added successfully!`);
         setIsMemberModalOpen(false);
-        setMemberFormData({ name: '', phone: '' });
+        setMemberFormData({ name: '', phone: '', chitCount: 1 });
         fetchGroupMembers(selectedGroup.id);
       } else {
         const errorData = await res.json();
@@ -1507,39 +1519,40 @@ function DashboardContent() {
                 <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-slate-200 shadow-sm">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-4">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => router.push('/admin/dashboard')}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all whitespace-nowrap"
                         >
                           <ArrowLeft size={14} />
-                          Back to groups
+                          <span>Back to groups</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => downloadGroupSchedulePDF(selectedGroup)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-100 transition-all"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs sm:text-sm font-bold hover:bg-emerald-100 transition-all whitespace-nowrap"
                         >
                           <Download size={14} />
-                          Download Scheme PDF
+                          <span className="hidden sm:inline">Download Scheme PDF</span>
+                          <span className="sm:hidden">Scheme PDF</span>
                         </button>
                       </div>
 
-                      <div className="min-w-0 flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                          <Layers size={22} strokeWidth={2} />
+                      <div className="min-w-0 flex items-start gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0 mt-0.5 sm:mt-0">
+                          <Layers size={20} strokeWidth={2} className="sm:w-[22px] sm:h-[22px]" />
                         </div>
                         <div className="min-w-0">
-                          <h1 className="text-2xl font-bold text-slate-900 leading-tight tracking-tight truncate">
+                          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight tracking-tight truncate">
                             {selectedGroup.name}
                           </h1>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-                            <span className="text-[11px] font-semibold text-slate-500">{formatCurrency(selectedGroup.totalAmount)} pool</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-[11px] font-semibold text-slate-500">{formatCurrency(selectedGroup.monthlyContribution)}/mo</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-[11px] font-semibold text-slate-500">{selectedGroup.duration} months</span>
+                          <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-1 mt-1 sm:mt-1.5">
+                            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 whitespace-nowrap">{formatCurrency(selectedGroup.totalAmount)} pool</span>
+                            <span className="text-slate-300 hidden sm:inline">·</span>
+                            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 whitespace-nowrap">{formatCurrency(selectedGroup.monthlyContribution)}/mo</span>
+                            <span className="text-slate-300 hidden sm:inline">·</span>
+                            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 whitespace-nowrap">{selectedGroup.duration} months</span>
                           </div>
                         </div>
                       </div>
@@ -2082,12 +2095,18 @@ function DashboardContent() {
 
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => setEditMemberModal({
-                                  isOpen: true,
-                                  membershipId: member.membershipId,
-                                  name: member.name,
-                                  phone: member.phone || '',
-                                })}
+                                onClick={() => {
+                                  const userChits = members.filter(m => m.id === member.id).length;
+                                  setEditMemberModal({
+                                    isOpen: true,
+                                    membershipId: member.membershipId,
+                                    userId: member.id,
+                                    name: member.name,
+                                    phone: member.phone || '',
+                                    chitCount: userChits,
+                                    initialChitCount: userChits
+                                  });
+                                }}
                                 className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"
                                 title="Edit Member Details"
                               >
@@ -2157,16 +2176,42 @@ function DashboardContent() {
               </div>
 
               <form onSubmit={handleAddMember} className="space-y-5">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Member Name *</label>
-                  <input
-                    type="text"
-                    value={memberFormData.name}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
-                    placeholder="e.g. Rahul Sharma"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                    required
-                  />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Member Name *</label>
+                    <input
+                      type="text"
+                      value={memberFormData.name}
+                      onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Chits</label>
+                    <div className="flex items-center gap-1 h-12 bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setMemberFormData(prev => ({ ...prev, chitCount: Math.max(1, prev.chitCount - 1) }))}
+                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                        disabled={memberFormData.chitCount <= 1}
+                      >
+                        <Minus size={14} strokeWidth={2.5} />
+                      </button>
+                      <div className="w-8 text-center select-none">
+                        <span className="text-sm font-black text-slate-800">{memberFormData.chitCount}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMemberFormData(prev => ({ ...prev, chitCount: prev.chitCount + 1 }))}
+                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95"
+                      >
+                        <Plus size={14} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -2404,20 +2449,46 @@ function DashboardContent() {
               </div>
 
               <form onSubmit={handleUpdateMemberDetails} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Member Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={editMemberModal.name}
-                    onChange={(e) => setEditMemberModal(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter name"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                  />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2 block">Member Name *</label>
+                    <input
+                      required
+                      type="text"
+                      value={editMemberModal.name}
+                      onChange={(e) => setEditMemberModal(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter name"
+                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Chits</label>
+                    <div className="flex items-center gap-1 h-12 bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditMemberModal(prev => ({ ...prev, chitCount: Math.max(prev.initialChitCount, prev.chitCount - 1) }))}
+                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                        disabled={editMemberModal.chitCount <= editMemberModal.initialChitCount}
+                      >
+                        <Minus size={14} strokeWidth={2.5} />
+                      </button>
+                      <div className="w-8 text-center select-none">
+                        <span className="text-sm font-black text-slate-800">{editMemberModal.chitCount}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditMemberModal(prev => ({ ...prev, chitCount: prev.chitCount + 1 }))}
+                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95"
+                      >
+                        <Plus size={14} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Mobile Number</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 block">Mobile Number</label>
                   <input
                     type="text"
                     value={editMemberModal.phone}
