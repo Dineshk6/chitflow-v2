@@ -1,7 +1,18 @@
 'use client';
 
 
-import { useState, useEffect } from 'react';
+
+
+
+
+
+
+
+
+
+
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -28,7 +39,6 @@ import {
   MessageCircle,
   BarChart2,
   Percent,
-  Sparkles,
   Send,
   Trophy,
   Copy,
@@ -44,9 +54,31 @@ import { toast } from 'sonner';
 import CreateGroupModal from '@/components/admin/CreateGroupModal';
 import { generateChitSchedule } from '@/lib/chitCalculations';
 
+const getGroupSlug = (group: any) => {
+  if (!group) return '';
+  const cleanName = group.name.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  return `${cleanName}-${group.id}`;
+};
+
 export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { data: session } = useSession();
-  // Navigation states
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupSlug = searchParams.get('group');
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'members' | 'payments'>('payments');
@@ -140,6 +172,24 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (groups.length > 0) {
+      if (groupSlug) {
+        const targetId = groupSlug.includes('-')
+          ? groupSlug.split('-').pop()
+          : groupSlug;
+        const found = groups.find(g => g.id === targetId);
+        if (found) {
+          setSelectedGroup(found);
+        } else {
+          setSelectedGroup(null);
+        }
+      } else {
+        setSelectedGroup(null);
+      }
+    }
+  }, [groupSlug, groups]);
+
+  useEffect(() => {
     if (selectedGroup) {
       fetchGroupMembers(selectedGroup.id);
       // Pre-fill lift amount: use liftedContribution if stored, else default to totalAmount (prize value)
@@ -150,7 +200,7 @@ export default function Dashboard() {
       setSelectedWinnerId('none');
       setSelectedMonth(1);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroup?.id]);
 
   // --- API calls for groups ---
@@ -169,13 +219,13 @@ export default function Dashboard() {
 
   const handleCreateOrUpdateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Client-side validation
     const errors: Record<string, string> = {};
     if (!groupFormData.name?.trim()) {
       errors.name = "Group Name is required";
     }
-    
+
     if (!groupFormData.totalValue) {
       errors.totalValue = "Total Pool Value is required";
     } else if (isNaN(Number(groupFormData.totalValue)) || Number(groupFormData.totalValue) <= 0) {
@@ -260,7 +310,7 @@ export default function Dashboard() {
         toast.success("Group deleted successfully!");
         setGroupToDelete(null);
         if (selectedGroup?.id === groupToDelete.id) {
-          setSelectedGroup(null);
+          router.push('/admin/dashboard');
         }
         fetchGroups();
       } else {
@@ -447,7 +497,7 @@ export default function Dashboard() {
       toast.error("Please enter a valid lift amount first.");
       return;
     }
-    
+
     // Calculate dividend and dues (No dividend flow applied)
     const dividend = 0;
     const perMemberDiscount = 0;
@@ -458,8 +508,8 @@ export default function Dashboard() {
     if (winnerId !== 'none') {
       const winner = members.find((m) => m.id === winnerId);
       if (winner) {
-        const monthNames = ['January','February','March','April','May','June',
-                            'July','August','September','October','November','December'];
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
         const now = new Date();
         const calMonth = monthNames[now.getMonth()];
         const calYear = now.getFullYear();
@@ -499,7 +549,7 @@ export default function Dashboard() {
         const payment = m.payments?.find((p: any) => p.month === selectedMonth);
         const isCurrentWinner = winnerId !== 'none' && m.id === winnerId;
         const hasWonBefore = m.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
-        
+
         const dueAmount = (isCurrentWinner || hasWonBefore)
           ? (selectedGroup.liftedContribution || selectedGroup.monthlyContribution)
           : selectedGroup.monthlyContribution;
@@ -521,7 +571,7 @@ export default function Dashboard() {
             payments: batchPayments
           })
         });
-        
+
         if (!batchRes.ok) {
           toast.error("Failed to update member dues.");
         } else {
@@ -591,12 +641,12 @@ export default function Dashboard() {
     const dashboardUrl = `${window.location.origin}/auth/member/login`;
 
     const text = `*ChitFlow Member Dashboard Summary* 📊\n\n` +
-                 `*Group:* ${selectedGroup?.name}\n` +
-                 `*Member:* ${member.name}\n` +
-                 `*Month:* ${selectedMonth} of ${totalMonths}\n` +
-                 `*Amount:* ₹${amountVal.toLocaleString('en-IN')}\n` +
-                 `*Payment Status:* ${isPaid ? 'PAID ✅' : 'PENDING ⏳'}\n\n` +
-                 `View your full dashboard here: ${dashboardUrl}`;
+      `*Group:* ${selectedGroup?.name}\n` +
+      `*Member:* ${member.name}\n` +
+      `*Month:* ${selectedMonth} of ${totalMonths}\n` +
+      `*Amount:* ₹${amountVal.toLocaleString('en-IN')}\n` +
+      `*Payment Status:* ${isPaid ? 'PAID ✅' : 'PENDING ⏳'}\n\n` +
+      `View your full dashboard here: ${dashboardUrl}`;
 
     const url = `https://wa.me/91${member.phone || member.mobile}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
@@ -666,7 +716,7 @@ export default function Dashboard() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    
+
     if (agentPhone) {
       doc.text(`CONTACT: ${agentPhone}`, 190, 24, { align: 'right' });
     } else if (agentEmail) {
@@ -706,22 +756,20 @@ export default function Dashboard() {
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.text('MEMBERS LIMIT', 25, 61);
     doc.text('CALCULATION TYPE', 80, 61);
-    doc.text('START DATE', 140, 61);
+    doc.text('LIFTED PAY', 140, 61);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.text(`${membersLimit} Members`, 25, 66);
     doc.text(calculationType === 'VARIATION_1' ? 'Return Pay Model' : 'Fixed Pay Model', 80, 66);
-    
-    let dateStr = 'Not Scheduled';
-    if (startDate) {
-      const d = new Date(startDate);
-      if (!isNaN(d.getTime())) {
-        dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
+
+    if (calculationType === 'VARIATION_1') {
+      const L = liftedContribution || (monthlyContribution * 1.25);
+      doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
+    } else {
+      doc.text('-', 140, 66);
     }
-    doc.text(dateStr, 140, 66);
 
     // Table Header
     let y = 78;
@@ -746,7 +794,7 @@ export default function Dashboard() {
         doc.addPage();
         doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.rect(0, 0, 210, 4, 'F');
-        
+
         y = 20;
         doc.setFillColor(241, 245, 249);
         doc.rect(20, y, 170, 8, 'F');
@@ -782,7 +830,7 @@ export default function Dashboard() {
         doc.setFont('helvetica', 'bold');
         doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55 + regWidth, y + 5);
         const regValWidth = doc.getTextWidth(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`);
-        
+
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
         doc.text(' / Lifted: ', 55 + regWidth + regValWidth, y + 5);
@@ -974,7 +1022,7 @@ export default function Dashboard() {
     for (let m = 1; m <= totalMonths; m++) {
       const payment = member.payments?.find((p: any) => p.month === m);
       const isPaid = payment?.status === 'PAID';
-      
+
       let amountVal = payment?.amount;
       if (amountVal === undefined) {
         const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < m);
@@ -997,7 +1045,7 @@ export default function Dashboard() {
 
         doc.addPage();
         pageNum++;
-        
+
         // Top decorative bar
         doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.rect(0, 0, 210, 5, 'F');
@@ -1148,7 +1196,7 @@ export default function Dashboard() {
   })();
 
   // Computations
-  const filteredGroups = groups.filter(g => 
+  const filteredGroups = groups.filter(g =>
     g.name.toLowerCase().includes(groupSearchQuery.toLowerCase()) ||
     g.totalAmount.toString().includes(groupSearchQuery) ||
     g.monthlyContribution.toString().includes(groupSearchQuery)
@@ -1406,7 +1454,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
                               <h3 className="text-xl font-bold text-slate-900 line-clamp-2 leading-tight mb-5">{group.name}</h3>
-                              
+
                               <div className="grid grid-cols-2 gap-x-4 gap-y-5 mt-auto text-sm">
                                 <div>
                                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pool Value</p>
@@ -1433,14 +1481,14 @@ export default function Dashboard() {
                             <div className="border-t border-slate-100 p-2 bg-slate-50/50">
                               <button
                                 type="button"
-                                onClick={() => setSelectedGroup(group)}
+                                onClick={() => router.push('/admin/dashboard?group=' + getGroupSlug(group))}
                                 className="w-full py-2.5 flex items-center justify-center gap-2 text-sm font-bold text-slate-600 group-hover:text-blue-600 group-hover:bg-white rounded-xl transition-all"
                               >
                                 Manage Group <ChevronRight size={16} />
                               </button>
                             </div>
                           </motion.div>
-                    ))}
+                        ))}
                       </div>
                     )}
                   </div>
@@ -1462,7 +1510,7 @@ export default function Dashboard() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedGroup(null)}
+                          onClick={() => router.push('/admin/dashboard')}
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all"
                         >
                           <ArrowLeft size={14} />
@@ -2074,6 +2122,7 @@ export default function Dashboard() {
         onClose={() => { setIsGroupModalOpen(false); setEditingGroup(null); }}
         onSubmit={handleCreateGroupViaModal}
         isSubmitting={isSubmittingGroup}
+        group={editingGroup}
       />
 
       {/* --- ADD GROUP MEMBER MODAL --- */}
@@ -2098,7 +2147,7 @@ export default function Dashboard() {
                 <h3 className="text-xl font-black text-slate-900 leading-none">
                   Add Group Member
                 </h3>
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsMemberModalOpen(false)}
                   className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
@@ -2278,7 +2327,7 @@ export default function Dashboard() {
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-sm border border-amber-100">
                   <Trophy size={24} />
                 </div>
-                <button 
+                <button
                   onClick={() => setWinnerMessageModal(null)}
                   className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
                 >
@@ -2346,7 +2395,7 @@ export default function Dashboard() {
                   <h3 className="text-lg font-bold text-slate-900">Edit Member Details</h3>
                   <p className="text-xs text-slate-500 mt-1">Update how this member's name appears in this group</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', name: '', phone: '' })}
                   className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
                 >

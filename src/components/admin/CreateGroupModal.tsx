@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Layers, TrendingUp } from 'lucide-react';
@@ -16,6 +16,7 @@ interface CreateGroupModalProps {
   onClose: () => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isSubmitting: boolean;
+  group?: any;
 }
 
 export default function CreateGroupModal({
@@ -23,18 +24,20 @@ export default function CreateGroupModal({
   onClose,
   onSubmit,
   isSubmitting,
+  group,
 }: CreateGroupModalProps) {
   const [calculationType, setCalculationType] = useState<'VARIATION_1' | 'VARIATION_2'>('VARIATION_1');
   const [name, setName] = useState('');
-  const [totalValue, setTotalValue] = useState<number | ''>(500000);
-  const [membersLimit, setMembersLimit] = useState<number | ''>(25);
-  const [durationMonths, setDurationMonths] = useState<number | ''>(25);
-  const [monthlyContribution, setMonthlyContribution] = useState<number | ''>(20000);
-  const [liftedContribution, setLiftedContribution] = useState<number | ''>(25000);
-  const [startBid, setStartBid] = useState<number | ''>(310000);
-  const [commissionPct, setCommissionPct] = useState<number | ''>(5.0);
+  const [totalValue, setTotalValue] = useState<number | ''>('');
+  const [membersLimit, setMembersLimit] = useState<number | ''>('');
+  const [durationMonths, setDurationMonths] = useState<number | ''>('');
+  const [monthlyContribution, setMonthlyContribution] = useState<number | ''>('');
+  const [liftedContribution, setLiftedContribution] = useState<number | ''>('');
+  const [startBid, setStartBid] = useState<number | ''>('');
+  const [commissionPct, setCommissionPct] = useState<number | ''>('');
   const [activeTab, setActiveTab] = useState<'details' | 'schedule'>('details');
   const [mounted, setMounted] = useState(false);
+  const justOpenedRef = useRef(true);
 
   useEffect(() => {
     setMounted(true);
@@ -68,13 +71,42 @@ export default function CreateGroupModal({
 
   useEffect(() => {
     if (isOpen) {
+      justOpenedRef.current = true;
+      if (group) {
+        setCalculationType(group.calculationType || 'VARIATION_1');
+        setName(group.name || '');
+        setTotalValue(group.totalAmount || group.totalValue || '');
+        setMembersLimit(group.membersLimit || '');
+        setDurationMonths(group.duration || '');
+        setMonthlyContribution(group.monthlyContribution || '');
+        setLiftedContribution(group.liftedContribution || '');
+        setStartBid(group.startBid || '');
+        setCommissionPct(group.commissionPct !== undefined ? group.commissionPct : 5.0);
+      } else {
+        setCalculationType('VARIATION_1');
+        setName('');
+        setTotalValue('');
+        setMembersLimit('');
+        setDurationMonths('');
+        setMonthlyContribution('');
+        setLiftedContribution('');
+        setStartBid('');
+        setCommissionPct('');
+      }
       setActiveTab('details');
     }
-  }, [isOpen]);
+  }, [isOpen, group]);
 
   useEffect(() => {
-    const t = Number(totalValue) || 0;
-    const d = Number(durationMonths) || 1;
+    if (!isOpen) return;
+    if (justOpenedRef.current) {
+      justOpenedRef.current = false;
+      return;
+    }
+    if (!totalValue || !durationMonths) return;
+
+    const t = Number(totalValue);
+    const d = Number(durationMonths);
     const c = Number(commissionPct) || 0;
 
     if (calculationType === 'VARIATION_1') {
@@ -163,7 +195,7 @@ export default function CreateGroupModal({
                   Schedule Preview
                 </button>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors flex-shrink-0"
               >
@@ -177,7 +209,7 @@ export default function CreateGroupModal({
                 <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0">
                   <div className="flex-1 overflow-y-auto pr-2 pb-2 space-y-3">
                     <input type="hidden" name="calculationType" value={calculationType} />
-                    
+
                     {/* Model Selection */}
                     <div className="space-y-1">
                       <label className={fieldLabel}>Calculation Model</label>

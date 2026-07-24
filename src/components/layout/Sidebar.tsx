@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, ChevronRight, Layers, Loader2, Sparkles, Settings } from 'lucide-react';
+import { Bell, LogOut, ChevronRight, Layers, Loader2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from './NavigationProgress';
@@ -31,7 +31,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-  const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setPendingHref(null);
@@ -57,61 +56,66 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     .slice(0, 2);
 
   const SidebarContent = (
-    <div className="flex flex-col h-full bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/40 overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-200/80 dark:border-slate-800/80 overflow-hidden">
       
       {/* Brand Header */}
       <div
         className={cn(
-          'flex-shrink-0 border-b border-slate-200/40 dark:border-slate-800/40 bg-gradient-to-b from-indigo-50/30 to-transparent',
-          collapsed ? 'flex flex-col items-center gap-2 py-5 px-2' : 'flex items-center gap-3 p-5'
+          'flex-shrink-0 border-b border-slate-100 dark:border-slate-900/80',
+          collapsed ? 'flex flex-col items-center gap-2 py-5 px-2' : 'flex items-center justify-between gap-3 p-5'
         )}
       >
-        <motion.div
-          layout
-          className={cn(
-            'bg-gradient-to-tr from-indigo-600 via-indigo-600 to-blue-600 text-white font-black flex items-center justify-center shrink-0 transition-transform duration-300 shadow-lg shadow-indigo-600/20 hover:scale-105',
-            collapsed ? 'w-11 h-11 text-lg rounded-xl' : 'w-10 h-10 text-base rounded-xl'
-          )}
-        >
-          CF
-        </motion.div>
+        <div className="flex items-center gap-3 min-w-0">
+          <motion.div
+            layout
+            className={cn(
+              'bg-blue-600 text-white font-extrabold flex items-center justify-center shrink-0 transition-transform duration-300 shadow-sm hover:scale-105',
+              collapsed ? 'w-10 h-10 text-base rounded-xl' : 'w-9 h-9 text-sm rounded-xl'
+            )}
+          >
+            CF
+          </motion.div>
 
-        <AnimatePresence mode="wait">
-          {!collapsed && (
-            <motion.div
-              key="brand"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.15 }}
-              className="min-w-0 flex-1 overflow-hidden"
-            >
-              <h2 className="font-extrabold text-slate-800 dark:text-white text-sm tracking-tight truncate flex items-center gap-1.5">
-                ChitFlow
-                <Sparkles size={12} className="text-indigo-600 shrink-0" />
-              </h2>
-              <p className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest leading-none mt-0.5">Agent Portal</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.div
+                key="brand"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.12 }}
+                className="min-w-0 flex-1 overflow-hidden"
+              >
+                <h2 className="font-black text-slate-900 dark:text-white text-sm tracking-tight truncate">
+                  ChitFlow
+                </h2>
+                <div className="flex items-center mt-0.5">
+                  <span className="text-[8px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 px-1 py-0.5 rounded uppercase tracking-wider leading-none">
+                    Agent Portal
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           className={cn(
-            'hidden lg:flex rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-all duration-200 items-center justify-center shrink-0 border border-slate-200/30',
+            'hidden lg:flex rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all duration-150 items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-800',
             collapsed ? 'w-9 h-9' : 'w-8 h-8'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <motion.span animate={{ rotate: collapsed ? 0 : 180 }} transition={springSmooth}>
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </motion.span>
         </button>
       </div>
 
       {/* Navigation Links */}
-      <nav className={cn('flex-1 overflow-y-auto py-6 space-y-1.5', collapsed ? 'px-2' : 'px-3')}>
+      <nav className={cn('flex-1 overflow-y-auto py-6 space-y-1', collapsed ? 'px-2' : 'px-3')}>
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const isPending = pendingHref === item.href;
@@ -120,8 +124,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               key={item.name}
               type="button"
               title={collapsed ? item.name : undefined}
-              onMouseEnter={() => setHoveredItem(item.name)}
-              onMouseLeave={() => setHoveredItem(null)}
               onClick={() => {
                 if (pathname.startsWith(item.href)) {
                   onClose?.();
@@ -134,63 +136,45 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               }}
               disabled={isPending}
               className={cn(
-                'relative flex items-center rounded-xl transition-all duration-200 w-full group overflow-hidden',
-                collapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-3 text-left',
+                'flex items-center rounded-xl transition-all duration-150 w-full group',
+                collapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5 text-left',
                 isActive
-                  ? 'text-white shadow-md shadow-indigo-600/10 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold',
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/15 font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900/60 font-semibold',
                 isPending && 'opacity-60'
               )}
             >
-              {/* Active Background Slide */}
-              {isActive && (
-                <motion.div
-                  layoutId="active-nav-pill"
-                  className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 -z-10"
-                  transition={springSmooth}
-                />
-              )}
-
-              {/* Hover highlight background */}
-              {!isActive && hoveredItem === item.name && (
-                <motion.div
-                  layoutId="hover-nav-pill"
-                  className="absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 -z-10"
-                  transition={{ duration: 0.15 }}
-                />
-              )}
-
               <item.icon
-                size={18}
+                size={16}
                 className={cn(
                   'shrink-0 transition-transform duration-200 group-hover:scale-105',
-                  isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                  isActive ? 'text-white' : 'text-slate-400 dark:text-slate-550 group-hover:text-slate-700 dark:group-hover:text-slate-300'
                 )}
               />
-              {!collapsed && <span className="text-xs tracking-wide truncate">{item.name}</span>}
+              {!collapsed && <span className="text-xs font-semibold tracking-wide truncate">{item.name}</span>}
             </button>
           );
         })}
       </nav>
 
       {/* Sidebar Footer */}
-      <div className={cn('flex-shrink-0 border-t border-slate-200/40 dark:border-slate-800/40 bg-gradient-to-t from-slate-100/50 to-transparent', collapsed ? 'p-2 space-y-3' : 'p-4 space-y-3')}>
+      <div className={cn('flex-shrink-0 border-t border-slate-100 dark:border-slate-900/80 bg-slate-50/20 dark:bg-transparent', collapsed ? 'p-2 space-y-3' : 'p-4 space-y-3')}>
         
         {/* User Card */}
         <div
           className={cn(
-            'flex items-center rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/60 shadow-sm transition-all',
+            'flex items-center rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/60 transition-all',
             collapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
           )}
           title={collapsed ? userName : undefined}
         >
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-sm border border-slate-650 dark:border-slate-800">
             {userInitials}
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{userName}</p>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Agent</p>
+              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{userName}</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mt-0.5">Agent</p>
             </div>
           )}
         </div>
@@ -202,12 +186,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           disabled={isLoggingOut}
           title={collapsed ? 'Sign out' : undefined}
           className={cn(
-            'w-full flex items-center justify-center gap-2 font-bold text-xs border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300',
-            'hover:border-red-200 dark:hover:border-red-950/40 hover:bg-red-50/50 dark:hover:bg-red-950/20 hover:text-red-600 transition-all duration-200 active:scale-[0.98]',
-            collapsed ? 'p-3 rounded-xl' : 'px-4 py-2.5 rounded-xl'
+            'w-full flex items-center justify-center gap-2 h-10 font-bold text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400',
+            'hover:border-red-200 hover:bg-red-50/30 hover:text-red-600 transition-all duration-200 active:scale-[0.98] rounded-xl'
           )}
         >
-          {isLoggingOut ? <Loader2 size={16} className="animate-spin text-red-500" /> : <LogOut size={14} />}
+          {isLoggingOut ? <Loader2 size={14} className="animate-spin text-red-500" /> : <LogOut size={13} />}
           {!collapsed && <span>Sign out</span>}
         </button>
       </div>

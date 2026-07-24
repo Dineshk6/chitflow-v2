@@ -18,7 +18,6 @@ import {
   Megaphone,
   Trash2,
   Check,
-  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -67,7 +66,7 @@ function getNotificationBadge(type: string) {
       };
     case 'auction':
       return {
-        icon: <Sparkles size={16} />,
+        icon: <Megaphone size={16} />,
         label: 'Auction',
         styles: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
         avatarBg: 'from-pink-500 to-rose-500',
@@ -221,7 +220,7 @@ export default function NotificationsPage() {
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-2 max-w-xl">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/25 text-white text-xs font-bold uppercase tracking-wider">
-                <Sparkles size={12} className="animate-pulse" />
+                <Bell size={12} className="animate-pulse" />
                 Admin Communications Console
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-none text-white font-sans">

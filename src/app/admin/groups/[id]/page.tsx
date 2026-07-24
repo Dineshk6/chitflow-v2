@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { formatCurrency, cn } from '@/lib/utils';
-import { 
+import {
   generateChitSchedule,
   suggestVariation2StartBid,
   suggestVariation2MonthlyContribution
@@ -43,11 +43,11 @@ export default function GroupDetailsPage() {
   const { data: session } = useSession();
   const params = useParams();
   const groupId = params.id as string;
-  
+
   const [activeTab, setActiveTab] = useState('overview');
   const [group, setGroup] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Group Edit States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editCalculationType, setEditCalculationType] = useState<'VARIATION_1' | 'VARIATION_2'>('VARIATION_1');
@@ -70,7 +70,7 @@ export default function GroupDetailsPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  
+
   const [editMemberNameModal, setEditMemberNameModal] = useState<{
     isOpen: boolean;
     membershipId: string;
@@ -91,6 +91,8 @@ export default function GroupDetailsPage() {
   const [paymentFilter, setPaymentFilter] = useState('ALL');
   const [winnerMessageModal, setWinnerMessageModal] = useState<{ isOpen: boolean, winner: any, text: string } | null>(null);
 
+  const [isEditInitialized, setIsEditInitialized] = useState(false);
+
   useEffect(() => {
     if (groupId) {
       fetchGroupDetails();
@@ -100,6 +102,10 @@ export default function GroupDetailsPage() {
 
   useEffect(() => {
     if (isEditModalOpen) {
+      if (!isEditInitialized) {
+        setIsEditInitialized(true);
+        return;
+      }
       if (editCalculationType === 'VARIATION_1') {
         const regular = Math.round(editTotalAmount / editMembersLimit);
         setEditMonthlyContribution(regular);
@@ -110,8 +116,10 @@ export default function GroupDetailsPage() {
         const suggestedBid = suggestVariation2StartBid(editTotalAmount, editMembersLimit, C, editCommissionPct);
         setEditStartBid(suggestedBid);
       }
+    } else {
+      setIsEditInitialized(false);
     }
-  }, [editCalculationType, editTotalAmount, editMembersLimit, editCommissionPct, isEditModalOpen]);
+  }, [editCalculationType, isEditModalOpen]);
 
   // Sync custom amounts on month change
   useEffect(() => {
@@ -209,12 +217,12 @@ export default function GroupDetailsPage() {
     setIsUpdatingMemberName(true);
     try {
       const res = await fetch('/api/admin/customers', {
-         method: 'PATCH',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-           membershipId: editMemberNameModal.membershipId,
-           name: editMemberNameModal.name,
-         }),
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          membershipId: editMemberNameModal.membershipId,
+          name: editMemberNameModal.name,
+        }),
       });
       if (res.ok) {
         toast.success("Member name updated successfully!");
@@ -294,10 +302,10 @@ export default function GroupDetailsPage() {
       const res = await fetch('/api/admin/auctions/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          groupId, 
-          month: group.currentMonth || 1, 
-          prizeValue: group.totalAmount 
+        body: JSON.stringify({
+          groupId,
+          month: group.currentMonth || 1,
+          prizeValue: group.totalAmount
         }),
       });
       if (res.ok) {
@@ -337,12 +345,12 @@ export default function GroupDetailsPage() {
       toast.error("Please enter a valid lift amount first.");
       return;
     }
-    
+
     // 1. Trigger WhatsApp notification modal optimistically
     if (winnerId !== 'none') {
       const winner = members.find((m) => m.id === winnerId);
       if (winner) {
-        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const now = new Date();
         const hasChanged = group.liftedContribution && group.liftedContribution !== group.monthlyContribution;
         const nextMonthDue = hasChanged ? group.liftedContribution : group.monthlyContribution;
@@ -397,7 +405,7 @@ export default function GroupDetailsPage() {
             payments: batchPayments
           })
         });
-        
+
         if (!batchRes.ok) toast.error("Failed to update member dues.");
         else toast.success(winnerId !== 'none' ? "Winner set & Dues applied!" : "Winner cleared & Dues reset!");
       }
@@ -566,7 +574,7 @@ export default function GroupDetailsPage() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    
+
     if (agentPhone) {
       doc.text(`CONTACT: ${agentPhone}`, 190, 24, { align: 'right' });
     } else if (agentEmail) {
@@ -606,22 +614,20 @@ export default function GroupDetailsPage() {
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.text('MEMBERS LIMIT', 25, 61);
     doc.text('CALCULATION TYPE', 80, 61);
-    doc.text('START DATE', 140, 61);
+    doc.text('LIFTED PAY', 140, 61);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.text(`${membersLimit} Members`, 25, 66);
     doc.text(calculationType === 'VARIATION_1' ? 'Return Pay Model' : 'Fixed Pay Model', 80, 66);
-    
-    let dateStr = 'Not Scheduled';
-    if (startDate) {
-      const d = new Date(startDate);
-      if (!isNaN(d.getTime())) {
-        dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
+
+    if (calculationType === 'VARIATION_1') {
+      const L = liftedContribution || (monthlyContribution * 1.25);
+      doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
+    } else {
+      doc.text('-', 140, 66);
     }
-    doc.text(dateStr, 140, 66);
 
     // Table Header
     let y = 78;
@@ -646,7 +652,7 @@ export default function GroupDetailsPage() {
         doc.addPage();
         doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.rect(0, 0, 210, 4, 'F');
-        
+
         y = 20;
         doc.setFillColor(241, 245, 249);
         doc.rect(20, y, 170, 8, 'F');
@@ -682,7 +688,7 @@ export default function GroupDetailsPage() {
         doc.setFont('helvetica', 'bold');
         doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55 + regWidth, y + 5);
         const regValWidth = doc.getTextWidth(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`);
-        
+
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
         doc.text(' / Lifted: ', 55 + regWidth + regValWidth, y + 5);
@@ -766,7 +772,7 @@ export default function GroupDetailsPage() {
     <AdminLayout>
       <PageWrapper>
         <div className="space-y-8 min-w-0">
-          
+
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-4">
@@ -787,14 +793,14 @@ export default function GroupDetailsPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={() => downloadGroupSchedulePDF(group)}
                 className="h-12 px-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 text-sm"
               >
                 <Download size={18} />
                 Download PDF
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setEditCalculationType(group.calculationType || 'VARIATION_1');
                   setEditTotalAmount(group.totalAmount);
@@ -864,7 +870,7 @@ export default function GroupDetailsPage() {
                   </div>
 
                   <div className="bg-slate-900 p-8 rounded-[32px] shadow-lg text-white">
-                    <h3 className="text-xl font-black mb-6 flex items-center gap-2"><CheckCircle2 className="text-emerald-400"/> Agent Commission Details</h3>
+                    <h3 className="text-xl font-black mb-6 flex items-center gap-2"><CheckCircle2 className="text-emerald-400" /> Agent Commission Details</h3>
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Agent Commission Rate</p>
@@ -901,7 +907,7 @@ export default function GroupDetailsPage() {
             {/* DYNAMIC PAYMENTS TRACKER TAB */}
             {activeTab === 'payments' && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                
+
                 {/* Dashboard Controls */}
                 <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1024,8 +1030,8 @@ export default function GroupDetailsPage() {
                                   className={cn(
                                     "w-32 h-10 pl-7 pr-3 rounded-xl border text-sm font-black focus:outline-none focus:ring-2",
                                     hasWonBefore ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                                    : isWinner ? "border-amber-400 bg-amber-50 text-amber-700 animate-pulse"
-                                    : "border-slate-200 bg-white text-slate-900 focus:ring-blue-500/20"
+                                      : isWinner ? "border-amber-400 bg-amber-50 text-amber-700 animate-pulse"
+                                        : "border-slate-200 bg-white text-slate-900 focus:ring-blue-500/20"
                                   )}
                                 />
                               </div>
@@ -1098,7 +1104,7 @@ export default function GroupDetailsPage() {
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-black text-slate-900">Enrolled Members ({group.members?.length || 0})</h3>
                   <button onClick={() => setIsMemberModalOpen(true)} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700 transition-all">
-                    <Plus size={16}/> Add Member
+                    <Plus size={16} /> Add Member
                   </button>
                 </div>
                 <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
@@ -1142,7 +1148,7 @@ export default function GroupDetailsPage() {
                                 disabled={approvingMemberId === m.id}
                                 className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center gap-1"
                               >
-                                {approvingMemberId === m.id ? <Loader2 size={12} className="animate-spin"/> : null}
+                                {approvingMemberId === m.id ? <Loader2 size={12} className="animate-spin" /> : null}
                                 Approve
                               </button>
                             ) : (
@@ -1178,7 +1184,7 @@ export default function GroupDetailsPage() {
           </div>
         </div>
       </PageWrapper>
-      
+
       {/* MemberSelectorModal */}
       <MemberSelectorModal
         isOpen={isMemberModalOpen}
@@ -1303,7 +1309,7 @@ export default function GroupDetailsPage() {
                 }}
                 className="flex-1 py-3 rounded-xl bg-green-500 text-white font-bold flex items-center justify-center gap-2"
               >
-                <Send size={16}/> Send Alert
+                <Send size={16} /> Send Alert
               </button>
             </div>
           </div>

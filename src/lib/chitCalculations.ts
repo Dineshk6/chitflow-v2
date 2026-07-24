@@ -28,12 +28,12 @@ export function getMonthDate(startDateStr: string | null | Date, monthIndex: num
     return `Month ${monthIndex + 1}`;
   }
   date.setMonth(date.getMonth() + monthIndex);
-  
+
   const day = date.getDate().toString().padStart(2, '0');
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthLabel = monthNames[date.getMonth()];
   const yearShort = date.getFullYear().toString().slice(-2);
-  
+
   return `${day}-${monthLabel}-${yearShort}`;
 }
 
@@ -67,13 +67,13 @@ export function generateChitSchedule(params: {
 
   if (calculationType === 'VARIATION_1') {
     // Variation 1: Return/Lifted Contribution
-    const L = liftedContribution || monthlyContribution * 1.25; 
+    const L = liftedContribution || monthlyContribution * 1.25;
     const C = monthlyContribution;
     const commissionVal = totalAmount * (commissionPct / 100);
 
     for (let m = 1; m <= duration; m++) {
       const prevWinnersCount = m - 1;
-      const nonWinnersCount = duration - m + 1; 
+      const nonWinnersCount = duration - m + 1;
       const totalPool = prevWinnersCount * L + nonWinnersCount * C;
       const bidAmount = Math.max(0, totalPool - commissionVal);
 
@@ -150,7 +150,7 @@ export function getSumFractions(duration: number): number {
   const fractions30 = [
     0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 45, 50, 55, 60, 66, 72, 78, 85, 94, 103, 112, 121, 130, 140, 150, 160, 170, 180, 190
   ].map(v => v / 190);
-  
+
   let sum = 0;
   for (let m = 1; m <= duration; m++) {
     if (m === duration) {
@@ -177,10 +177,10 @@ export function suggestVariation2StartBid(
   const sumFrac = getSumFractions(duration);
   const totalCollected = duration * duration * monthlyContribution;
   const targetPaidOut = totalCollected * (1 - commissionPct / 100);
-  
+
   const denom = duration - sumFrac;
   if (Math.abs(denom) < 0.001) return totalAmount * 0.60;
-  
+
   const startBid = (targetPaidOut - totalAmount * sumFrac) / denom;
   return Math.round(startBid);
 }
@@ -193,10 +193,10 @@ export function suggestVariation2MonthlyContribution(
 ): number {
   const sumFrac = getSumFractions(duration);
   const targetPaidOut = startBid * (duration - sumFrac) + totalAmount * sumFrac;
-  
+
   const denom = duration * duration * (1 - commissionPct / 100);
   if (Math.abs(denom) < 0.001) return Math.round((totalAmount * 0.81) / duration);
-  
+
   const C = targetPaidOut / denom;
   return Math.round(C);
 }
