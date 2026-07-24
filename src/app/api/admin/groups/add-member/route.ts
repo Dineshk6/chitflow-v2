@@ -47,7 +47,6 @@ export async function POST(req: Request) {
       where: { userId, groupId }
     });
 
-    const countToAdd = Math.max(1, Number(chitCount) || 1);
     const createdMemberships = [];
 
     for (let i = 0; i < countToAdd; i++) {
