@@ -58,7 +58,7 @@ export async function GET(req: Request) {
             groupId: ag.id,
             status: 'ACTIVE',
             group: ag
-          });
+          } as any);
         }
       }
     }
