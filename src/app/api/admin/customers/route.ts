@@ -367,6 +367,12 @@ export async function DELETE(req: Request) {
       });
       const uniqueUserIds = Array.from(new Set(memberships.map(m => m.userId)));
 
+      // Clean up orphaned auctions (remove winner status)
+      await prisma.auction.updateMany({
+        where: { winnerMembershipId: { in: membershipIds } },
+        data: { winnerMembershipId: null, winnerId: null }
+      });
+
       // Delete the memberships
       await prisma.groupMember.deleteMany({
         where: { id: { in: membershipIds } }
@@ -396,6 +402,12 @@ export async function DELETE(req: Request) {
       });
       const uniqueUserIds = Array.from(new Set(memberships.map(m => m.userId)));
 
+      // Clean up orphaned auctions (remove winner status)
+      await prisma.auction.updateMany({
+        where: { groupId },
+        data: { winnerMembershipId: null, winnerId: null }
+      });
+
       // Delete all memberships in the group
       await prisma.groupMember.deleteMany({
         where: { groupId }
@@ -421,6 +433,12 @@ export async function DELETE(req: Request) {
       const membership = await prisma.groupMember.findUnique({
         where: { id: membershipId },
         select: { userId: true }
+      });
+
+      // Clean up orphaned auctions (remove winner status)
+      await prisma.auction.updateMany({
+        where: { winnerMembershipId: membershipId },
+        data: { winnerMembershipId: null, winnerId: null }
       });
 
       await prisma.groupMember.delete({
