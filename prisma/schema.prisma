@@ -89,6 +89,7 @@ model GroupMember {
   joinedAt   DateTime     @default(now())
 
   payments   Payment[]
+  winnings   Auction[]    @relation("WinnerMembership")
 }
 
 model Payment {
@@ -114,19 +115,21 @@ enum AuctionStatus {
 }
 
 model Auction {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  month       Int
-  winningBid  Float?
-  dividend    Float?
-  status      AuctionStatus @default(UPCOMING)
-  prizeValue  Float
-  winnerId    String?       @db.ObjectId
-  groupId     String        @db.ObjectId
-  scheduledAt DateTime?
-  winner      User?         @relation("Winner", fields: [winnerId], references: [id])
-  group       ChitGroup     @relation(fields: [groupId], references: [id])
-  bids        Bid[]
-  createdAt   DateTime      @default(now())
+  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
+  month              Int
+  winningBid         Float?
+  dividend           Float?
+  status             AuctionStatus @default(UPCOMING)
+  prizeValue         Float
+  winnerId           String?       @db.ObjectId
+  winnerMembershipId String?       @db.ObjectId
+  groupId            String        @db.ObjectId
+  scheduledAt        DateTime?
+  winner             User?         @relation("Winner", fields: [winnerId], references: [id])
+  winnerMembership   GroupMember?  @relation("WinnerMembership", fields: [winnerMembershipId], references: [id], onDelete: SetNull)
+  group              ChitGroup     @relation(fields: [groupId], references: [id])
+  bids               Bid[]
+  createdAt          DateTime      @default(now())
 }
 
 model Bid {

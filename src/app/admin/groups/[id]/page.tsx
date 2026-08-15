@@ -131,13 +131,13 @@ export default function GroupDetailsPage() {
         const defaultAmt = hasWonBefore
           ? (group.liftedContribution?.toString() || group.monthlyContribution.toString())
           : group.monthlyContribution.toString();
-        amounts[m.id] = payment?.amount?.toString() || defaultAmt;
+        amounts[m.membershipId || m.id] = payment?.amount?.toString() || defaultAmt;
       });
       setCustomAmounts(amounts);
 
       const currentWinner = members.find(m => m.liftedMonths?.includes(selectedMonth));
       if (currentWinner) {
-        setSelectedWinnerId(currentWinner.id);
+        setSelectedWinnerId(currentWinner.membershipId || currentWinner.id);
         const liftDetails = currentWinner.lifts?.find((l: any) => l.month === selectedMonth);
         setLiftAmountInput(liftDetails?.prizeValue ? liftDetails.prizeValue.toString() : '');
       } else {
@@ -354,7 +354,7 @@ export default function GroupDetailsPage() {
 
     // 1. Trigger WhatsApp notification modal optimistically
     if (winnerId !== 'none') {
-      const winner = members.find((m) => m.id === winnerId);
+      const winner = members.find((m) => (m.membershipId || m.id) === winnerId);
       if (winner) {
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const now = new Date();
@@ -388,7 +388,7 @@ export default function GroupDetailsPage() {
       // Update Member Payments Dynamically
       const batchPayments = members.map(m => {
         const payment = m.payments?.find((p: any) => p.month === selectedMonth);
-        const isCurrentWinner = winnerId !== 'none' && m.id === winnerId;
+        const isCurrentWinner = winnerId !== 'none' && (m.membershipId || m.id) === winnerId;
         const hasWonBefore = m.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
         const dueAmount = (isCurrentWinner || hasWonBefore)
           ? (group.liftedContribution || group.monthlyContribution)
@@ -396,6 +396,7 @@ export default function GroupDetailsPage() {
 
         return {
           userId: m.id,
+          membershipId: m.membershipId || null,
           amount: dueAmount,
           status: payment?.status || 'PENDING'
         };
@@ -981,7 +982,7 @@ export default function GroupDetailsPage() {
                           onChange={(winnerId) => handleWinnerAndDividendChange(winnerId, Number(liftAmountInput))}
                           options={[
                             { value: 'none', label: 'Unclaimed / None' },
-                            ...members.map((m) => ({ value: m.id, label: m.name })),
+                            ...members.map((m) => ({ value: m.membershipId || m.id, label: m.name })),
                           ]}
                         />
                       ) : (

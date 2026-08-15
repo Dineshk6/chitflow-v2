@@ -67,10 +67,10 @@ export async function GET(
       const membership = group.members.find(m => m.userId === p.userId);
       return {
         ...p,
-        user: {
+        user: p.user ? {
           ...p.user,
           name: membership?.customName || p.user.name
-        }
+        } : null
       };
     });
 
@@ -79,10 +79,10 @@ export async function GET(
         const membership = group.members.find(m => m.userId === b.userId);
         return {
           ...b,
-          user: {
+          user: b.user ? {
             ...b.user,
             name: membership?.customName || b.user.name
-          }
+          } : null
         };
       });
 

@@ -43,7 +43,9 @@ import {
   Trophy,
   Copy,
   X,
-  Minus
+  Minus,
+  CheckSquare,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -113,6 +115,11 @@ function DashboardContent() {
   const [isSubmittingMember, setIsSubmittingMember] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<any | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
+  const [isRemoveAllModalOpen, setIsRemoveAllModalOpen] = useState(false);
+  const [isRemovingAllMembers, setIsRemovingAllMembers] = useState(false);
+  const [selectedMembershipIds, setSelectedMembershipIds] = useState<string[]>([]);
+  const [isRemoveSelectedModalOpen, setIsRemoveSelectedModalOpen] = useState(false);
+  const [isRemovingSelected, setIsRemovingSelected] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
 
@@ -345,7 +352,7 @@ function DashboardContent() {
       if (Array.isArray(data)) {
         data.forEach(m => {
           const payment = m.payments?.find((p: any) => p.month === selectedMonth);
-          amounts[m.id] = payment?.amount?.toString() || selectedGroup.monthlyContribution.toString();
+          amounts[m.membershipId || m.id] = payment?.amount?.toString() || selectedGroup.monthlyContribution.toString();
         });
       }
       setCustomAmounts(amounts);
@@ -399,11 +406,11 @@ function DashboardContent() {
     }
   };
 
-  const handleRemoveMember = async () => {
+  const handleRemoveMember = async (deleteAll: boolean = false) => {
     if (!memberToDelete) return;
     setIsDeletingMember(true);
     try {
-      const url = memberToDelete.membershipId
+      const url = (memberToDelete.membershipId && !deleteAll)
         ? `/api/admin/customers?membershipId=${memberToDelete.membershipId}`
         : `/api/admin/customers?userId=${memberToDelete.id}&groupId=${selectedGroup.id}`;
       const res = await fetch(url, {
@@ -411,7 +418,7 @@ function DashboardContent() {
       });
 
       if (res.ok) {
-        toast.success("Member removed from group successfully!");
+        toast.success(deleteAll ? "All chits of this member removed!" : "Member removed from group successfully!");
         setMemberToDelete(null);
         fetchGroupMembers(selectedGroup.id);
       } else {
@@ -421,6 +428,52 @@ function DashboardContent() {
       toast.error("Something went wrong");
     } finally {
       setIsDeletingMember(false);
+    }
+  };
+
+  const handleRemoveAllMembers = async () => {
+    if (!selectedGroup) return;
+    setIsRemovingAllMembers(true);
+    try {
+      const res = await fetch(`/api/admin/customers?all=true&groupId=${selectedGroup.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        toast.success("All members removed successfully!");
+        setIsRemoveAllModalOpen(false);
+        fetchGroupMembers(selectedGroup.id);
+      } else {
+        const errorData = await res.json();
+        toast.error(errorData.error || "Failed to remove all members");
+      }
+    } catch (err) {
+      toast.error("Something went wrong");
+    } finally {
+      setIsRemovingAllMembers(false);
+    }
+  };
+
+  const handleRemoveSelected = async () => {
+    if (selectedMembershipIds.length === 0) return;
+    setIsRemovingSelected(true);
+    try {
+      const res = await fetch(
+        `/api/admin/customers?membershipIds=${selectedMembershipIds.join(',')}`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
+        toast.success(`${selectedMembershipIds.length} member(s) removed successfully!`);
+        setIsRemoveSelectedModalOpen(false);
+        setSelectedMembershipIds([]);
+        fetchGroupMembers(selectedGroup.id);
+      } else {
+        const errorData = await res.json();
+        toast.error(errorData.error || "Failed to remove selected members");
+      }
+    } catch (err) {
+      toast.error("Something went wrong");
+    } finally {
+      setIsRemovingSelected(false);
     }
   };
 
@@ -523,7 +576,7 @@ function DashboardContent() {
 
     // 1. Optimistically trigger winner WhatsApp notification modal immediately
     if (winnerId !== 'none') {
-      const winner = members.find((m) => m.id === winnerId);
+      const winner = members.find((m) => (m.membershipId || m.id) === winnerId);
       if (winner) {
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
           'July', 'August', 'September', 'October', 'November', 'December'];
@@ -564,7 +617,7 @@ function DashboardContent() {
       // 2. Batch update payments for all members
       const batchPayments = members.map(m => {
         const payment = m.payments?.find((p: any) => p.month === selectedMonth);
-        const isCurrentWinner = winnerId !== 'none' && m.id === winnerId;
+        const isCurrentWinner = winnerId !== 'none' && (m.membershipId || m.id) === winnerId;
         const hasWonBefore = m.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
 
         const dueAmount = (isCurrentWinner || hasWonBefore)
@@ -573,6 +626,7 @@ function DashboardContent() {
 
         return {
           userId: m.id,
+          membershipId: m.membershipId || null,
           amount: dueAmount,
           status: payment?.status || 'PENDING'
         };
@@ -1186,7 +1240,7 @@ function DashboardContent() {
       // Sync local chit lift winner
       const currentWinner = members.find(m => m.liftedMonths?.includes(selectedMonth));
       if (currentWinner) {
-        setSelectedWinnerId(currentWinner.id);
+        setSelectedWinnerId(currentWinner.membershipId || currentWinner.id);
         const liftDetails = currentWinner.lifts?.find((l: any) => l.month === selectedMonth);
         setLiftAmountInput(liftDetails?.prizeValue ? liftDetails.prizeValue.toString() : '');
       } else {
@@ -1667,7 +1721,7 @@ function DashboardContent() {
                               onChange={(winnerId) => handleWinnerAndDividendChange(winnerId, Number(liftAmountInput))}
                               options={[
                                 { value: 'none', label: 'Unclaimed / None' },
-                                ...members.map((m) => ({ value: m.id, label: m.name })),
+                                ...members.map((m) => ({ value: m.membershipId || m.id, label: m.name })),
                               ]}
                             />
                           ) : (
@@ -1802,7 +1856,7 @@ function DashboardContent() {
                               const isEditingAmount = editingAmountUserId === member.id;
 
                               return (
-                                <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={member.membershipId || member.id} className="hover:bg-slate-50 transition-colors">
                                   <td className="px-4 lg:px-6 py-3">
                                     <div className="flex items-center gap-3">
                                       <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-black flex items-center justify-center">
@@ -2071,100 +2125,227 @@ function DashboardContent() {
                   </div>
                 )}
 
+
                 {/* ---------------- MEMBERS DIRECTORY TAB ---------------- */}
                 {activeTab === 'members' && (
-                  <div className="space-y-6 animate-fadeIn">
-
-                    {/* Add member button and search filter */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                      <div className="relative w-full max-w-md flex items-center gap-3">
-                        <div className="relative flex-1 w-full">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                          <input
-                            type="text"
-                            placeholder="Search enrolled members..."
-                            value={memberSearchQuery}
-                            onChange={(e) => setMemberSearchQuery(e.target.value)}
-                            className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-xs shadow-sm"
-                          />
+                  <div className="space-y-8 animate-fadeIn pb-24">
+                    
+                    {/* ── Minimal Premium Toolbar ── */}
+                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                      {/* Search */}
+                      <div className="relative w-full sm:w-[320px] group">
+                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                          <Search className="text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
                         </div>
+                        <input
+                          type="text"
+                          placeholder="Search members..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="w-full h-11 pl-11 pr-4 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 shadow-sm"
+                        />
                       </div>
 
-                      <button
-                        onClick={() => setIsMemberModalOpen(true)}
-                        className="w-full sm:w-auto h-11 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
-                      >
-                        <Plus size={16} />
-                        Add Member Name & Phone
-                      </button>
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        {members.length > 0 && (
+                          <button
+                            onClick={() => setIsRemoveAllModalOpen(true)}
+                            title="Clear group"
+                            className="h-11 px-4 rounded-full border border-red-200 dark:border-red-900/40 text-red-500 bg-transparent hover:bg-red-50 dark:hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-2 font-semibold text-sm"
+                          >
+                            <Trash2 size={16} />
+                            <span className="hidden sm:inline">Clear All</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setIsMemberModalOpen(true)}
+                          className="flex-1 sm:flex-none h-11 px-6 rounded-full bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                        >
+                          <Plus size={16} />
+                          Add Member
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Members List Cards */}
+                    {/* ── Member Cards Grid ── */}
                     {isLoadingMembers ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                          <div key={i} className="h-36 rounded-3xl bg-white border border-slate-200" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                          <div key={i} className="h-40 rounded-[24px] bg-slate-100/50 dark:bg-slate-800/30 animate-pulse border border-slate-200/50 dark:border-slate-700/30" />
                         ))}
                       </div>
                     ) : filteredMembers.length === 0 ? (
-                      <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-16 text-center space-y-3">
-                        <Users size={36} className="text-slate-400 mx-auto" />
-                        <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">No members enrolled</h4>
-                        <p className="text-slate-500 text-xs max-w-xs mx-auto">
-                          Click the button above to add members to this group with their Name and Phone number.
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-col items-center justify-center py-20 px-4 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] bg-slate-50/30 dark:bg-slate-900/20"
+                      >
+                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                          <Users size={28} className="text-slate-400" />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">No members yet</h4>
+                        <p className="text-sm text-slate-500 mt-1 mb-6 max-w-[250px]">
+                          {memberSearchQuery ? "Try adjusting your search query." : "Add members to start managing this chit group."}
                         </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredMembers.map((member) => (
-                          <div
-                            key={member.id}
-                            className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-5 shadow-sm flex items-center justify-between group"
+                        {!memberSearchQuery && (
+                          <button
+                            onClick={() => setIsMemberModalOpen(true)}
+                            className="h-10 px-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md active:scale-95"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black flex items-center justify-center border border-slate-100 dark:border-slate-700">
-                                {member.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-bold text-slate-800 dark:text-white">{member.name}</h4>
-                                <p className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
-                                  <Phone size={10} />
-                                  {member.phone}
-                                </p>
-                              </div>
-                            </div>
+                            <Plus size={16} /> Enrol First Member
+                          </button>
+                        )}
+                      </motion.div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                            Directory <span className="text-slate-400 ml-1 font-medium">({filteredMembers.length})</span>
+                          </h3>
+                          <button
+                            onClick={() => {
+                              const allIds = filteredMembers.map((m: any, i: number) => m.membershipId || `${m.id}-${i}`);
+                              const allSelected = allIds.every((id: string) => selectedMembershipIds.includes(id));
+                              setSelectedMembershipIds(allSelected ? [] : allIds);
+                            }}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                          >
+                            {filteredMembers.length > 0 && filteredMembers.every((m: any, i: number) => selectedMembershipIds.includes(m.membershipId || `${m.id}-${i}`))
+                              ? "Deselect All" : "Select All"}
+                          </button>
+                        </div>
 
-                            <div className="flex items-center gap-1">
-                              <button
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                          {filteredMembers.map((member: any, idx: number) => {
+                            const memKey = member.membershipId || `${member.id}-${idx}`;
+                            const isChecked = selectedMembershipIds.includes(memKey);
+                            const hasLifted = member.liftedMonths && member.liftedMonths.length > 0;
+                            const avatarColors = [
+                              'from-blue-600 to-cyan-500',
+                              'from-violet-600 to-fuchsia-500',
+                              'from-emerald-500 to-teal-400',
+                              'from-rose-500 to-orange-400',
+                              'from-amber-500 to-yellow-400',
+                              'from-indigo-600 to-blue-500',
+                            ];
+                            const color = avatarColors[idx % avatarColors.length];
+
+                            return (
+                              <div
+                                key={memKey}
                                 onClick={() => {
-                                  const userChits = members.filter(m => m.id === member.id).length;
-                                  setEditMemberModal({
-                                    isOpen: true,
-                                    membershipId: member.membershipId,
-                                    userId: member.id,
-                                    name: member.name,
-                                    phone: member.phone || '',
-                                    chitCount: userChits,
-                                    initialChitCount: userChits
-                                  });
+                                  setSelectedMembershipIds(prev =>
+                                    isChecked ? prev.filter(id => id !== memKey) : [...prev, memKey]
+                                  )
                                 }}
-                                className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all"
-                                title="Edit Member Details"
+                                className={`group relative flex flex-col p-5 bg-white dark:bg-slate-900 rounded-[24px] border transition-all duration-300 cursor-pointer ${
+                                  isChecked
+                                    ? 'border-blue-500 ring-[3px] ring-blue-500/10 shadow-md shadow-blue-500/5'
+                                    : 'border-slate-200/80 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]'
+                                }`}
                               >
-                                <Edit3 size={16} />
-                              </button>
-                              <button
-                                onClick={() => setMemberToDelete(member)}
-                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"
-                                title="Remove from group"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                                {/* Circular Checkbox (Top Right) */}
+                                <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                  isChecked
+                                    ? 'bg-blue-600 border-blue-600 text-white scale-100 opacity-100'
+                                    : 'border-slate-300 dark:border-slate-600 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100'
+                                }`}>
+                                  {isChecked && <Check size={12} strokeWidth={4} />}
+                                </div>
+
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${color} text-white text-lg font-black flex items-center justify-center shrink-0 shadow-inner`}>
+                                    {member.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0 pr-8">
+                                    <h4 className="text-base font-black text-slate-900 dark:text-white truncate">{member.name}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                                      {member.phone || 'No phone'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {hasLifted && (
+                                  <div className="mb-4">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200/60 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50 uppercase tracking-widest">
+                                      <Trophy size={10} /> Won
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const userChits = members.filter((m: any) => m.id === member.id).length;
+                                      setEditMemberModal({
+                                        isOpen: true,
+                                        membershipId: member.membershipId,
+                                        userId: member.id,
+                                        name: member.name,
+                                        phone: member.phone || '',
+                                        chitCount: userChits,
+                                        initialChitCount: userChits
+                                      });
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-full transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit3 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMemberToDelete(member);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors"
+                                    title="Remove"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
+
+                    {/* ── Dynamic Island Selection Dock ── */}
+                    <AnimatePresence>
+                      {selectedMembershipIds.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-4 py-3 rounded-full bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-xl text-white dark:text-slate-900 shadow-2xl shadow-slate-900/20 border border-slate-800 dark:border-white ring-1 ring-white/10 dark:ring-slate-900/10"
+                        >
+                          <div className="flex items-center gap-3 pl-2 border-r border-white/20 dark:border-slate-900/20 pr-4">
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-black text-xs">
+                              {selectedMembershipIds.length}
+                            </div>
+                            <span className="text-sm font-bold">Selected</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSelectedMembershipIds([])}
+                              className="h-9 px-4 rounded-full text-xs font-bold text-slate-300 dark:text-slate-600 hover:bg-white/10 dark:hover:bg-slate-900/10 transition-all"
+                            >
+                              Clear
+                            </button>
+                            <button
+                              onClick={() => setIsRemoveSelectedModalOpen(true)}
+                              className="h-9 px-5 rounded-full bg-red-500 hover:bg-red-600 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+                            >
+                              <Trash2 size={14} />
+                              Remove
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </motion.div>
@@ -2368,22 +2549,68 @@ function DashboardContent() {
               </div>
               <h3 className="text-lg font-bold text-slate-900">Remove Member</h3>
               <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                Are you sure you want to remove <span className="font-bold text-slate-800">{memberToDelete.name}</span> from the group <span className="font-bold text-slate-800">{selectedGroup.name}</span>? This will wipe their payment history for this group.
+                Are you sure you want to remove <span className="font-bold text-slate-800">{memberToDelete.name}</span>? This will wipe their payment history for this group.
               </p>
 
-              <div className="mt-6 flex gap-3">
+              <div className="mt-6 flex gap-2">
                 <button
                   onClick={() => setMemberToDelete(null)}
-                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleRemoveMember}
+                  onClick={() => handleRemoveMember(false)}
                   disabled={isDeletingMember}
-                  className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20"
+                  className="flex-[2] h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 cursor-pointer disabled:opacity-50"
                 >
-                  {isDeletingMember ? <Loader2 size={16} className="animate-spin" /> : <><UserX size={16} /> Remove</>}
+                  {isDeletingMember ? <Loader2 size={16} className="animate-spin" /> : <><UserX size={16} /> Remove Chit</>}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- CONFIRM REMOVE ALL MEMBERS MODAL --- */}
+      <AnimatePresence>
+        {isRemoveAllModalOpen && selectedGroup && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRemoveAllModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 mb-4">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Remove All Members</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Are you sure you want to remove <span className="font-bold text-slate-800">ALL members</span> from <span className="font-bold text-slate-800">{selectedGroup.name}</span>? This will completely clear all memberships and wipe all payment histories for this group.
+              </p>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setIsRemoveAllModalOpen(false)}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveAllMembers}
+                  disabled={isRemovingAllMembers}
+                  className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 cursor-pointer disabled:opacity-50"
+                >
+                  {isRemovingAllMembers ? <Loader2 size={16} className="animate-spin" /> : 'Remove All'}
                 </button>
               </div>
             </motion.div>
@@ -2459,6 +2686,50 @@ function DashboardContent() {
         )}
       </AnimatePresence>
 
+      {/* --- CONFIRM REMOVE SELECTED MEMBERS MODAL --- */}
+      <AnimatePresence>
+        {isRemoveSelectedModalOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRemoveSelectedModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 mb-4">
+                <UserX size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Remove Selected Members</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Are you sure you want to remove <span className="font-bold text-slate-800">{selectedMembershipIds.length} selected member(s)</span> from <span className="font-bold text-slate-800">{selectedGroup?.name}</span>? Their payment history will be wiped.
+              </p>
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setIsRemoveSelectedModalOpen(false)}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveSelected}
+                  disabled={isRemovingSelected}
+                  className="flex-1 h-11 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 cursor-pointer disabled:opacity-50"
+                >
+                  {isRemovingSelected ? <Loader2 size={16} className="animate-spin" /> : `Remove ${selectedMembershipIds.length}`}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {editMemberModal.isOpen && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -2490,42 +2761,16 @@ function DashboardContent() {
               </div>
 
               <form onSubmit={handleUpdateMemberDetails} className="space-y-4">
-                <div className="flex items-end gap-3">
-                  <div className="flex-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2 block">Member Name *</label>
-                    <input
-                      required
-                      type="text"
-                      value={editMemberModal.name}
-                      onChange={(e) => setEditMemberModal(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Enter name"
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
-                    />
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Chits</label>
-                    <div className="flex items-center gap-1 h-12 bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setEditMemberModal(prev => ({ ...prev, chitCount: Math.max(prev.initialChitCount, prev.chitCount - 1) }))}
-                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
-                        disabled={editMemberModal.chitCount <= editMemberModal.initialChitCount}
-                      >
-                        <Minus size={14} strokeWidth={2.5} />
-                      </button>
-                      <div className="w-8 text-center select-none">
-                        <span className="text-sm font-black text-slate-800">{editMemberModal.chitCount}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditMemberModal(prev => ({ ...prev, chitCount: prev.chitCount + 1 }))}
-                        className="w-8 h-full flex items-center justify-center bg-white hover:bg-slate-100 rounded-lg text-slate-600 transition-all active:scale-95"
-                      >
-                        <Plus size={14} strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2 block">Member Name *</label>
+                  <input
+                    required
+                    type="text"
+                    value={editMemberModal.name}
+                    onChange={(e) => setEditMemberModal(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter name"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
+                  />
                 </div>
 
                 <div className="space-y-2">

@@ -60,11 +60,11 @@ export async function GET(req: Request) {
 
       // Find which months this member lifted the chit
       const liftedMonths = auctions
-        .filter(a => a.winnerId === m.userId)
+        .filter(a => a.winnerMembershipId === m.id || (!a.winnerMembershipId && a.winnerId === m.userId))
         .map(a => a.month);
 
       const lifts = auctions
-        .filter(a => a.winnerId === m.userId)
+        .filter(a => a.winnerMembershipId === m.id || (!a.winnerMembershipId && a.winnerId === m.userId))
         .map(a => ({
           month: a.month,
           prizeValue: a.prizeValue || 0,
@@ -220,12 +220,41 @@ export async function PATCH(req: Request) {
 
       let auction;
       const winnerVal = winnerId === "none" || !winnerId ? null : winnerId;
+      let winnerUserId: string | null = null;
+      let winnerMemId: string | null = null;
 
       if (winnerVal) {
+        // Try looking up by GroupMember ID first
+        const member = await prisma.groupMember.findUnique({
+          where: { id: winnerVal }
+        });
+        if (member) {
+          winnerUserId = member.userId;
+          winnerMemId = member.id;
+        } else {
+          // Fallback if it's a legacy user ID
+          winnerUserId = winnerVal;
+        }
+      }
+
+      if (winnerMemId) {
         const alreadyWon = await prisma.auction.findFirst({
           where: {
             groupId,
-            winnerId: winnerVal,
+            winnerMembershipId: winnerMemId,
+            status: "CLOSED",
+            month: { not: targetMonth }
+          }
+        });
+
+        if (alreadyWon) {
+          return NextResponse.json({ error: "This specific chit ticket has already won/lifted the chit in another month!" }, { status: 400 });
+        }
+      } else if (winnerUserId) {
+        const alreadyWon = await prisma.auction.findFirst({
+          where: {
+            groupId,
+            winnerId: winnerUserId,
             status: "CLOSED",
             month: { not: targetMonth }
           }
@@ -244,10 +273,11 @@ export async function PATCH(req: Request) {
         auction = await prisma.auction.update({
           where: { id: existingAuction.id },
           data: {
-            winnerId: winnerVal,
-            prizeValue: winnerVal ? pVal : 0,
-            winningBid: winnerVal ? wBid : 0,
-            dividend: winnerVal ? divVal : 0
+            winnerId: winnerUserId,
+            winnerMembershipId: winnerMemId,
+            prizeValue: winnerUserId ? pVal : 0,
+            winningBid: winnerUserId ? wBid : 0,
+            dividend: winnerUserId ? divVal : 0
           }
         });
       } else {
@@ -255,10 +285,11 @@ export async function PATCH(req: Request) {
           data: {
             groupId,
             month: targetMonth,
-            winnerId: winnerVal,
-            prizeValue: winnerVal ? pVal : 0,
-            winningBid: winnerVal ? wBid : 0,
-            dividend: winnerVal ? divVal : 0,
+            winnerId: winnerUserId,
+            winnerMembershipId: winnerMemId,
+            prizeValue: winnerUserId ? pVal : 0,
+            winningBid: winnerUserId ? wBid : 0,
+            dividend: winnerUserId ? divVal : 0,
             status: "CLOSED"
           }
         });
@@ -324,6 +355,67 @@ export async function DELETE(req: Request) {
     const userId = searchParams.get("userId");
     const groupId = searchParams.get("groupId");
     const membershipId = searchParams.get("membershipId");
+    const membershipIdsParam = searchParams.get("membershipIds");
+    const all = searchParams.get("all") === "true";
+
+    if (membershipIdsParam) {
+      const membershipIds = membershipIdsParam.split(",");
+      // Find all memberships
+      const memberships = await prisma.groupMember.findMany({
+        where: { id: { in: membershipIds } },
+        select: { userId: true }
+      });
+      const uniqueUserIds = Array.from(new Set(memberships.map(m => m.userId)));
+
+      // Delete the memberships
+      await prisma.groupMember.deleteMany({
+        where: { id: { in: membershipIds } }
+      });
+
+      // Cleanup users who have no other memberships
+      for (const uId of uniqueUserIds) {
+        const otherMemberships = await prisma.groupMember.findFirst({
+          where: { userId: uId }
+        });
+        if (!otherMemberships) {
+          await prisma.bid.deleteMany({ where: { userId: uId } });
+          await prisma.payment.deleteMany({ where: { userId: uId } });
+          await prisma.notification.deleteMany({ where: { userId: uId } });
+          await prisma.user.deleteMany({ where: { id: uId, role: "MEMBER" } });
+        }
+      }
+
+      return NextResponse.json({ message: "Selected members removed successfully!" });
+    }
+
+    if (all && groupId) {
+      // Find all memberships in this group
+      const memberships = await prisma.groupMember.findMany({
+        where: { groupId },
+        select: { userId: true }
+      });
+      const uniqueUserIds = Array.from(new Set(memberships.map(m => m.userId)));
+
+      // Delete all memberships in the group
+      await prisma.groupMember.deleteMany({
+        where: { groupId }
+      });
+
+      // Cleanup users who have no other memberships
+      for (const uId of uniqueUserIds) {
+        const otherMemberships = await prisma.groupMember.findFirst({
+          where: { userId: uId }
+        });
+        if (!otherMemberships) {
+          await prisma.bid.deleteMany({ where: { userId: uId } });
+          await prisma.payment.deleteMany({ where: { userId: uId } });
+          await prisma.notification.deleteMany({ where: { userId: uId } });
+          await prisma.user.deleteMany({ where: { id: uId, role: "MEMBER" } });
+        }
+      }
+
+      return NextResponse.json({ message: "All group members removed successfully!" });
+    }
 
     if (membershipId) {
       const membership = await prisma.groupMember.findUnique({

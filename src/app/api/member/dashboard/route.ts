@@ -80,11 +80,11 @@ export async function GET(req: Request) {
         // Get who won which month
         const auctions = await prisma.auction.findMany({
           where: { groupId: membership.groupId } as any,
-          select: { month: true, winnerId: true }
+          select: { month: true, winnerId: true, winnerMembershipId: true }
         } as any);
 
         const myWins = auctions
-          .filter((a: any) => a.winnerId === memberId)
+          .filter((a: any) => a.winnerMembershipId === membership.id || (!a.winnerMembershipId && a.winnerId === memberId))
           .map((a: any) => a.month);
 
         const paidPayments = payments.filter((p: { status: string }) => p.status === 'PAID');
