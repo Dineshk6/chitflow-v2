@@ -264,7 +264,7 @@ export default function GroupDetailsPage() {
   const handleRemoveMember = async (userId: string, memberName: string, membershipId?: string) => {
     if (!confirm(`Remove ${memberName} from this group?`)) return;
     try {
-      const url = membershipId 
+      const url = membershipId
         ? `/api/admin/customers?membershipId=${membershipId}&groupId=${groupId}`
         : `/api/admin/customers?userId=${userId}&groupId=${groupId}`;
       const res = await fetch(url, {
@@ -538,6 +538,7 @@ export default function GroupDetailsPage() {
       startBid,
       startDate,
       commissionPct,
+      manualSchedule: group.manualSchedule || null,
     });
 
     const doc = new jsPDF({
@@ -626,9 +627,17 @@ export default function GroupDetailsPage() {
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.text(`${membersLimit} Members`, 25, 66);
-    doc.text(calculationType === 'VARIATION_1' ? 'Return Pay Model' : 'Fixed Pay Model', 80, 66);
+    doc.text(
+      calculationType === 'VARIATION_1'
+        ? 'Return Pay Model'
+        : calculationType === 'MANUAL'
+          ? 'Manual Entry Model'
+          : 'Fixed Pay Model',
+      80,
+      66
+    );
 
-    if (calculationType === 'VARIATION_1') {
+    if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
       const L = liftedContribution || (monthlyContribution * 1.25);
       doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
     } else {
@@ -686,7 +695,7 @@ export default function GroupDetailsPage() {
       doc.setTextColor(textDark[0], textDark[1], textDark[2]);
       doc.text(String(row.month), 24, y + 5);
 
-      if (calculationType === 'VARIATION_1') {
+      if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(textDark[0], textDark[1], textDark[2]);
         doc.text('Reg: ', 55, y + 5);
@@ -716,7 +725,15 @@ export default function GroupDetailsPage() {
       y += 7.5;
     });
 
-    doc.save(`${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Scheme PDF downloaded successfully!');
   };
 
@@ -772,6 +789,7 @@ export default function GroupDetailsPage() {
     startBid: group.startBid,
     startDate: group.startDate,
     commissionPct: group.commissionPct || 5.0,
+    manualSchedule: group.manualSchedule || null,
   });
 
   return (

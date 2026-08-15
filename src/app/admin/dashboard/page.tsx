@@ -686,6 +686,7 @@ function DashboardContent() {
       startBid,
       startDate,
       commissionPct,
+      manualSchedule: group.manualSchedule || null,
     });
 
     const doc = new jsPDF({
@@ -774,9 +775,17 @@ function DashboardContent() {
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.text(`${membersLimit} Members`, 25, 66);
-    doc.text(calculationType === 'VARIATION_1' ? 'Return Pay Model' : 'Fixed Pay Model', 80, 66);
+    doc.text(
+      calculationType === 'VARIATION_1'
+        ? 'Return Pay Model'
+        : calculationType === 'MANUAL'
+          ? 'Manual Entry Model'
+          : 'Fixed Pay Model',
+      80,
+      66
+    );
 
-    if (calculationType === 'VARIATION_1') {
+    if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
       const L = liftedContribution || (monthlyContribution * 1.25);
       doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
     } else {
@@ -834,7 +843,7 @@ function DashboardContent() {
       doc.setTextColor(textDark[0], textDark[1], textDark[2]);
       doc.text(String(row.month), 24, y + 5);
 
-      if (calculationType === 'VARIATION_1') {
+      if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(textDark[0], textDark[1], textDark[2]);
         doc.text('Reg: ', 55, y + 5);
@@ -864,7 +873,15 @@ function DashboardContent() {
       y += 7.5;
     });
 
-    doc.save(`${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Scheme PDF downloaded successfully!');
   };
 
@@ -1135,7 +1152,15 @@ function DashboardContent() {
     doc.text('System generated statement. Securely processed by ChitFlow.', 105, 287, { align: 'center' });
     doc.text(`Page ${pageNum}`, 190, 287, { align: 'right' });
 
-    doc.save(`${member.name.replace(/\s+/g, '_')}_Chit_Statement.pdf`);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${member.name.replace(/\s+/g, '_')}_Chit_Statement.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success("Statement PDF exported successfully!");
   };
 
@@ -1172,7 +1197,8 @@ function DashboardContent() {
               liftedContribution: selectedGroup.liftedContribution,
               startBid: selectedGroup.startBid,
               startDate: selectedGroup.startDate,
-              commissionPct: selectedGroup.commissionPct || 5
+              commissionPct: selectedGroup.commissionPct || 5,
+              manualSchedule: selectedGroup.manualSchedule || null,
             });
             const monthRow = schedule.rows.find(r => r.month === selectedMonth);
             const liftAmt = monthRow ? monthRow.bidAmount : selectedGroup.totalAmount;
@@ -1289,6 +1315,15 @@ function DashboardContent() {
     e.preventDefault();
     setIsSubmittingGroup(true);
     const formData = new FormData(e.currentTarget);
+    let manualSchedule: unknown = null;
+    const rawSchedule = formData.get('manualSchedule');
+    if (typeof rawSchedule === 'string' && rawSchedule) {
+      try {
+        manualSchedule = JSON.parse(rawSchedule);
+      } catch {
+        manualSchedule = null;
+      }
+    }
     const payload = {
       name: formData.get('name'),
       totalValue: formData.get('totalValue'),
@@ -1299,6 +1334,7 @@ function DashboardContent() {
       calculationType: formData.get('calculationType'),
       startBid: formData.get('startBid'),
       commissionPct: formData.get('commissionPct'),
+      manualSchedule,
     };
     try {
       const method = editingGroup ? 'PUT' : 'POST';
@@ -2425,7 +2461,7 @@ function DashboardContent() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', name: '', phone: '' })}
+              onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', userId: '', name: '', phone: '', chitCount: 1, initialChitCount: 1 })}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
 
@@ -2441,7 +2477,7 @@ function DashboardContent() {
                   <p className="text-xs text-slate-500 mt-1">Update how this member's name appears in this group</p>
                 </div>
                 <button
-                  onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', name: '', phone: '' })}
+                  onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', userId: '', name: '', phone: '', chitCount: 1, initialChitCount: 1 })}
                   className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
                 >
                   <X size={20} />
@@ -2461,7 +2497,7 @@ function DashboardContent() {
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold"
                     />
                   </div>
-                  
+
                   <div className="flex flex-col items-center">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Chits</label>
                     <div className="flex items-center gap-1 h-12 bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-1 shrink-0">
@@ -2501,7 +2537,7 @@ function DashboardContent() {
                 <div className="pt-2 flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', name: '', phone: '' })}
+                    onClick={() => setEditMemberModal({ isOpen: false, membershipId: '', userId: '', name: '', phone: '', chitCount: 1, initialChitCount: 1 })}
                     className="flex-1 h-12 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
                   >
                     Cancel

@@ -151,6 +151,9 @@ export async function PATCH(
     if (body.commissionPct !== undefined) {
       dataToUpdate.commissionPct = body.commissionPct !== null ? parseFloat(body.commissionPct) : null;
     }
+    if (body.manualSchedule !== undefined) {
+      dataToUpdate.manualSchedule = body.manualSchedule;
+    }
 
     const updatedGroup = await prisma.chitGroup.update({
       where: { id },

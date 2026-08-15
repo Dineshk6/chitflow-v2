@@ -322,9 +322,29 @@ export async function DELETE(req: Request) {
     const membershipId = searchParams.get("membershipId");
 
     if (membershipId) {
+      const membership = await prisma.groupMember.findUnique({
+        where: { id: membershipId },
+        select: { userId: true }
+      });
+
       await prisma.groupMember.delete({
         where: { id: membershipId }
       });
+
+      if (membership) {
+        // Check if user has other memberships remaining
+        const otherMemberships = await prisma.groupMember.findFirst({
+          where: { userId: membership.userId }
+        });
+        // If no memberships left, delete the User and all associated data
+        if (!otherMemberships) {
+          await prisma.bid.deleteMany({ where: { userId: membership.userId } });
+          await prisma.payment.deleteMany({ where: { userId: membership.userId } });
+          await prisma.notification.deleteMany({ where: { userId: membership.userId } });
+          await prisma.user.deleteMany({ where: { id: membership.userId, role: "MEMBER" } });
+        }
+      }
+
       return NextResponse.json({ message: "Chit membership removed successfully!" });
     }
 
@@ -338,6 +358,18 @@ export async function DELETE(req: Request) {
         groupId
       }
     });
+
+    // Check if user has other memberships remaining
+    const otherMemberships = await prisma.groupMember.findFirst({
+      where: { userId }
+    });
+    // If no memberships left, delete the User and all associated data
+    if (!otherMemberships) {
+      await prisma.bid.deleteMany({ where: { userId } });
+      await prisma.payment.deleteMany({ where: { userId } });
+      await prisma.notification.deleteMany({ where: { userId } });
+      await prisma.user.deleteMany({ where: { id: userId, role: "MEMBER" } });
+    }
 
     return NextResponse.json({ message: "Member removed from group successfully!" });
   } catch (error: any) {

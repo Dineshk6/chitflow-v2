@@ -20,7 +20,14 @@ const navItems = [
 /* ── Clean Light Mark ── */
 function ChitFlowMark({ size = 34 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 44 44"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ width: size, height: size, minWidth: size, minHeight: size, flexShrink: 0, display: 'block' }}
+    >
       <defs>
         <linearGradient id="sbMarkGradLight" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#2563eb" />
@@ -148,15 +155,6 @@ export default function Sidebar({ isOpen, onClose, collapsed = false }: SidebarP
 
         {/* Spacer + platform card */}
         <div style={{ flex: 1, minHeight: 24 }} />
-        {!collapsed && (
-          <div style={{ padding: '14px', borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#0f172a', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Platform Live</span>
-            </div>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 500, lineHeight: 1.4, margin: 0 }}>All services running smoothly.</p>
-          </div>
-        )}
       </nav>
 
       {/* ── Footer ── */}

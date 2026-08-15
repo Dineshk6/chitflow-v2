@@ -69,17 +69,30 @@ export async function PATCH(req: Request) {
       const previousWinnerIds = new Set(previousAuctions.map(a => a.winnerId).filter(Boolean) as string[]);
 
       const amountToPayRegular = auction.group.monthlyContribution;
+      const calcType = (auction.group as any).calculationType || 'VARIATION_1';
+      const manualRows = Array.isArray((auction.group as any).manualSchedule)
+        ? (auction.group as any).manualSchedule
+        : null;
+      const monthEntry = manualRows?.find((r: any) => Number(r.month) === auction.month);
+      const monthRegular = monthEntry
+        ? Number(monthEntry.regularPay) || amountToPayRegular
+        : amountToPayRegular;
+      const monthLifted = monthEntry
+        ? Number(monthEntry.liftedPay) || monthRegular
+        : (auction.group.liftedContribution || amountToPayRegular);
 
       const paymentOperations = auction.group.members.map(member => {
         const hasWonBefore = previousWinnerIds.has(member.userId);
         
-        let amount = amountToPayRegular;
-        // In Variation 1, previous winners pay liftedContribution.
-        // In Variation 2, everyone pays monthlyContribution (fixed pay).
-        if ((auction.group as any).calculationType === 'VARIATION_1') {
+        let amount = monthRegular;
+        // Variation 1 / Manual: previous winners pay lifted amount.
+        // Variation 2: everyone pays fixed monthly contribution.
+        if (calcType === 'VARIATION_1' || calcType === 'MANUAL') {
           if (hasWonBefore) {
-            amount = auction.group.liftedContribution || auction.group.monthlyContribution;
+            amount = monthLifted;
           }
+        } else {
+          amount = amountToPayRegular;
         }
 
         return prisma.payment.create({

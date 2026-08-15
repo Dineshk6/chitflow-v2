@@ -60,10 +60,11 @@ export async function POST(req: Request) {
       calculationType,
       startBid,
       commissionPct,
+      manualSchedule,
     } = body;
 
     // Validation
-    if (!name || !totalValue || !membersLimit || !durationMonths || !monthlyContribution) {
+    if (!name || !totalValue || !membersLimit || !durationMonths || monthlyContribution === undefined || monthlyContribution === null || monthlyContribution === '') {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
     }
 
@@ -75,6 +76,8 @@ export async function POST(req: Request) {
     const startBidNum = startBid ? parseFloat(startBid) : null;
     const commissionPctNum = commissionPct !== undefined && commissionPct !== null ? parseFloat(commissionPct) : 5.0;
     const calculationTypeStr = calculationType || "VARIATION_1";
+    const manualScheduleData =
+      calculationTypeStr === 'MANUAL' && Array.isArray(manualSchedule) ? manualSchedule : null;
 
     if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
       return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
@@ -91,6 +94,7 @@ export async function POST(req: Request) {
         calculationType: calculationTypeStr,
         startBid: startBidNum,
         commissionPct: commissionPctNum,
+        manualSchedule: manualScheduleData,
         startDate: startDate ? new Date(startDate) : null,
         status: "UPCOMING",
         adminId: session.user.id,
@@ -135,9 +139,10 @@ export async function PUT(req: Request) {
       calculationType,
       startBid,
       commissionPct,
+      manualSchedule,
     } = body;
 
-    if (!id || !name || !totalValue || !membersLimit || !durationMonths || !monthlyContribution) {
+    if (!id || !name || !totalValue || !membersLimit || !durationMonths || monthlyContribution === undefined || monthlyContribution === null || monthlyContribution === '') {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
     }
 
@@ -149,6 +154,8 @@ export async function PUT(req: Request) {
     const startBidNum = startBid ? parseFloat(startBid) : null;
     const commissionPctNum = commissionPct !== undefined && commissionPct !== null ? parseFloat(commissionPct) : 5.0;
     const calculationTypeStr = calculationType || "VARIATION_1";
+    const manualScheduleData =
+      calculationTypeStr === 'MANUAL' && Array.isArray(manualSchedule) ? manualSchedule : null;
 
     if (isNaN(totalAmountNum) || isNaN(membersLimitNum) || isNaN(durationNum) || isNaN(monthlyContributionNum)) {
       return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
@@ -166,6 +173,7 @@ export async function PUT(req: Request) {
         calculationType: calculationTypeStr,
         startBid: startBidNum,
         commissionPct: commissionPctNum,
+        manualSchedule: manualScheduleData,
       } as any
     });
 
@@ -202,10 +210,39 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Group ID is required" }, { status: 400 });
     }
 
-    // Cascade deletes in MongoDB: memberships, payments, auctions, then group
+    // Find all member IDs in this group
+    const groupMembers = await prisma.groupMember.findMany({
+      where: { groupId: id },
+      select: { userId: true }
+    });
+    const userIds = groupMembers.map(m => m.userId);
+
+    // Cascade delete user-associated details to prevent orphan records
+    await prisma.bid.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.payment.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.groupMember.deleteMany({ where: { userId: { in: userIds } } });
+
+    // Remove winner references to these users in auctions
+    await prisma.auction.updateMany({
+      where: { winnerId: { in: userIds } },
+      data: { winnerId: null }
+    });
+
+    // Cascade delete any remaining group-specific details
     await prisma.groupMember.deleteMany({ where: { groupId: id } });
     await prisma.payment.deleteMany({ where: { groupId: id } });
     await prisma.auction.deleteMany({ where: { groupId: id } });
+
+    // Delete the member user accounts (keeping admin accounts intact)
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: userIds },
+        role: "MEMBER"
+      }
+    });
+
+    // Finally delete the group itself
     await prisma.chitGroup.delete({ where: { id } });
 
     console.log("Group deleted successfully:", id);

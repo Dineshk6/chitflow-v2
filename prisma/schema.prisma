@@ -54,6 +54,7 @@ model ChitGroup {
   liftedContribution  Float?
   calculationType     String        @default("VARIATION_1")
   startBid            Float?
+  manualSchedule      Json?
   duration            Int
   membersLimit        Int           @default(20)
   currentMonth        Int           @default(1)

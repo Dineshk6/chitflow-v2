@@ -385,7 +385,7 @@ export default function MemberDashboard() {
       {/* Glass Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/75 backdrop-blur-xl border-b border-slate-200/70 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
-          
+
           {/* Brand Logo */}
           <div className="flex items-center gap-3">
             <ChitFlowMark size={38} />
@@ -445,13 +445,13 @@ export default function MemberDashboard() {
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        
+
         {/* ================= 2-COLUMN LEFT/RIGHT LAYOUT ================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* ================= LEFT PANEL ================= */}
           <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-            
+
             {/* Dark Welcome Card (User Image Banner Design) */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -459,7 +459,7 @@ export default function MemberDashboard() {
               className="bg-[#0f1428] rounded-[28px] p-5 text-white shadow-2xl shadow-slate-900/20 border border-slate-800 relative overflow-hidden"
             >
               <div className="flex flex-col gap-4 relative z-10">
-                
+
                 {/* User Avatar + Live Sync + Name */}
                 <div className="flex items-center gap-3.5">
                   <div className="w-14 h-14 rounded-2xl bg-slate-900 border-2 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.5)] flex items-center justify-center shrink-0 text-blue-400">
@@ -577,7 +577,7 @@ export default function MemberDashboard() {
 
           {/* ================= RIGHT PANEL ================= */}
           <main className="lg:col-span-8 space-y-6">
-            
+
             {/* Section Controls */}
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xl shadow-slate-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
@@ -738,8 +738,8 @@ export default function MemberDashboard() {
                                       isWin
                                         ? 'bg-amber-50/90 border-amber-300/80 text-amber-900 shadow-sm'
                                         : isPaid
-                                        ? 'bg-white border-blue-200/90 text-slate-900 shadow-xs'
-                                        : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
+                                          ? 'bg-white border-blue-200/90 text-slate-900 shadow-xs'
+                                          : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
                                     )}
                                   >
                                     <div className="flex items-center justify-between">
