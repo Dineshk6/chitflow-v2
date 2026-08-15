@@ -424,13 +424,13 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleTogglePaymentStatus = async (userId: string, currentStatus: string) => {
+  const handleTogglePaymentStatus = async (userId: string, currentStatus: string, membershipId?: string) => {
     const nextStatus = currentStatus === 'PAID' ? 'PENDING' : 'PAID';
-    const amountVal = parseFloat(customAmounts[userId]) || group.monthlyContribution;
+    const amountVal = parseFloat(customAmounts[membershipId || userId]) || group.monthlyContribution;
 
     // Optimistic Update
     setMembers(prev => prev.map(m => {
-      if (m.id === userId) {
+      if (membershipId ? m.membershipId === membershipId : m.id === userId) {
         const otherPayments = m.payments.filter((p: any) => p.month !== selectedMonth);
         return {
           ...m,
@@ -446,6 +446,7 @@ export default function GroupDetailsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
+          membershipId,
           groupId: group.id,
           month: selectedMonth,
           status: nextStatus,
@@ -462,11 +463,11 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleSaveCustomAmount = async (userId: string) => {
-    const amountVal = parseFloat(customAmounts[userId]);
+  const handleSaveCustomAmount = async (userId: string, membershipId?: string) => {
+    const amountVal = parseFloat(customAmounts[membershipId || userId]);
     if (isNaN(amountVal) || amountVal <= 0) return;
 
-    const currentMember = members.find(m => m.id === userId);
+    const currentMember = members.find(m => membershipId ? m.membershipId === membershipId : m.id === userId);
     const payment = currentMember?.payments?.find((p: any) => p.month === selectedMonth);
     const statusVal = payment?.status || 'PENDING';
 
@@ -474,7 +475,7 @@ export default function GroupDetailsPage() {
       const res = await fetch('/api/admin/customers', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, groupId: group.id, month: selectedMonth, status: statusVal, amount: amountVal })
+        body: JSON.stringify({ userId, membershipId, groupId: group.id, month: selectedMonth, status: statusVal, amount: amountVal })
       });
       if (res.ok) {
         toast.success("Due amount updated!");
@@ -1026,7 +1027,7 @@ export default function GroupDetailsPage() {
                         const payment = member.payments?.find((p: any) => p.month === selectedMonth);
                         const isPaid = payment?.status === 'PAID';
                         const dbValue = payment?.amount || group.monthlyContribution;
-                        const currentInputValue = customAmounts[member.id] !== undefined ? customAmounts[member.id] : dbValue.toString();
+                        const currentInputValue = customAmounts[member.membershipId || member.id] !== undefined ? customAmounts[member.membershipId || member.id] : dbValue.toString();
                         const isWinner = member.liftedMonths?.includes(selectedMonth);
                         const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
 
@@ -1056,8 +1057,8 @@ export default function GroupDetailsPage() {
                                 <input
                                   type="number"
                                   value={currentInputValue}
-                                  onChange={(e) => setCustomAmounts({ ...customAmounts, [member.id]: e.target.value })}
-                                  onBlur={() => handleSaveCustomAmount(member.id)}
+                                  onChange={(e) => setCustomAmounts({ ...customAmounts, [member.membershipId || member.id]: e.target.value })}
+                                  onBlur={() => handleSaveCustomAmount(member.id, member.membershipId)}
                                   className={cn(
                                     "w-32 h-10 pl-7 pr-3 rounded-xl border text-sm font-black focus:outline-none focus:ring-2",
                                     hasWonBefore ? "border-emerald-400 bg-emerald-50 text-emerald-700"
@@ -1070,7 +1071,7 @@ export default function GroupDetailsPage() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING')}
+                                  onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING', member.membershipId)}
                                   className={cn(
                                     "text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all active:scale-95",
                                     isPaid ? "border-amber-200 text-amber-600 hover:bg-amber-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"

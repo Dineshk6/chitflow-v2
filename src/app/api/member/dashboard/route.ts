@@ -67,7 +67,13 @@ export async function GET(req: Request) {
     const groupData = await Promise.all(
       memberships.map(async (membership: any) => {
         const payments = await prisma.payment.findMany({
-          where: { userId: memberId, groupId: membership.groupId } as any,
+          where: {
+            groupId: membership.groupId,
+            OR: [
+              { membershipId: membership.id },
+              { membershipId: null, userId: memberId }
+            ]
+          } as any,
           orderBy: { month: 'asc' } as any
         });
 

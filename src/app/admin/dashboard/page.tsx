@@ -403,7 +403,10 @@ function DashboardContent() {
     if (!memberToDelete) return;
     setIsDeletingMember(true);
     try {
-      const res = await fetch(`/api/admin/customers?userId=${memberToDelete.id}&groupId=${selectedGroup.id}`, {
+      const url = memberToDelete.membershipId
+        ? `/api/admin/customers?membershipId=${memberToDelete.membershipId}`
+        : `/api/admin/customers?userId=${memberToDelete.id}&groupId=${selectedGroup.id}`;
+      const res = await fetch(url, {
         method: 'DELETE',
       });
 
@@ -422,14 +425,14 @@ function DashboardContent() {
   };
 
   // --- API calls for payments & custom contributions ---
-  const handleTogglePaymentStatus = async (userId: string, currentStatus: string) => {
+  const handleTogglePaymentStatus = async (userId: string, currentStatus: string, membershipId?: string) => {
     const nextStatus = currentStatus === 'PAID' ? 'PENDING' : 'PAID';
-    const amountVal = parseFloat(customAmounts[userId]) || selectedGroup.monthlyContribution;
-    const currentMember = members.find(m => m.id === userId);
+    const amountVal = parseFloat(customAmounts[membershipId || userId]) || selectedGroup.monthlyContribution;
+    const currentMember = members.find(m => membershipId ? m.membershipId === membershipId : m.id === userId);
 
     // Optimistic UI updates
     setMembers(prev => prev.map(m => {
-      if (m.id === userId) {
+      if (membershipId ? m.membershipId === membershipId : m.id === userId) {
         const otherPayments = m.payments.filter((p: any) => p.month !== selectedMonth);
         const updatedPayment = {
           month: selectedMonth,
@@ -450,6 +453,7 @@ function DashboardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
+          membershipId,
           groupId: selectedGroup.id,
           month: selectedMonth,
           status: nextStatus,
@@ -467,14 +471,14 @@ function DashboardContent() {
     }
   };
 
-  const handleSaveCustomAmount = async (userId: string) => {
-    const amountVal = parseFloat(customAmounts[userId]);
+  const handleSaveCustomAmount = async (userId: string, membershipId?: string) => {
+    const amountVal = parseFloat(customAmounts[membershipId || userId]);
     if (isNaN(amountVal) || amountVal <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
 
-    const currentMember = members.find(m => m.id === userId);
+    const currentMember = members.find(m => membershipId ? m.membershipId === membershipId : m.id === userId);
     const payment = currentMember?.payments?.find((p: any) => p.month === selectedMonth);
     const statusVal = payment?.status || 'PENDING';
 
@@ -484,6 +488,7 @@ function DashboardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
+          membershipId,
           groupId: selectedGroup.id,
           month: selectedMonth,
           status: statusVal,
@@ -1822,7 +1827,7 @@ function DashboardContent() {
                                     <div className="flex items-center gap-2.5">
                                       {(() => {
                                         const dbValue = payment?.amount || selectedGroup.monthlyContribution;
-                                        const currentInputValue = customAmounts[member.id] !== undefined ? customAmounts[member.id] : dbValue.toString();
+                                        const currentInputValue = customAmounts[member.membershipId || member.id] !== undefined ? customAmounts[member.membershipId || member.id] : dbValue.toString();
                                         const isWinner = member.liftedMonths?.includes(selectedMonth);
                                         const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
                                         const isChanged = parseFloat(currentInputValue) !== dbValue && currentInputValue !== '';
@@ -1836,9 +1841,9 @@ function DashboardContent() {
                                                 value={currentInputValue}
                                                 onChange={(e) => setCustomAmounts({
                                                   ...customAmounts,
-                                                  [member.id]: e.target.value
+                                                  [member.membershipId || member.id]: e.target.value
                                                 })}
-                                                onBlur={() => handleSaveCustomAmount(member.id)}
+                                                onBlur={() => handleSaveCustomAmount(member.id, member.membershipId)}
                                                 placeholder={selectedGroup.monthlyContribution.toString()}
                                                 className={cn(
                                                   "w-32 h-10 pl-7 pr-3 rounded-xl border text-xs font-black transition-all focus:outline-none focus:ring-2",
@@ -1883,7 +1888,7 @@ function DashboardContent() {
                                       </span>
 
                                       <button
-                                        onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING')}
+                                        onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING', member.membershipId)}
                                         className={cn(
                                           "text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-xl border transition-all active:scale-[0.96]",
                                           isPaid
@@ -1940,7 +1945,7 @@ function DashboardContent() {
                           const payment = member.payments?.find((p: any) => p.month === selectedMonth);
                           const isPaid = payment?.status === 'PAID';
                           const dbValue = payment?.amount || selectedGroup.monthlyContribution;
-                          const currentInputValue = customAmounts[member.id] !== undefined ? customAmounts[member.id] : dbValue.toString();
+                          const currentInputValue = customAmounts[member.membershipId || member.id] !== undefined ? customAmounts[member.membershipId || member.id] : dbValue.toString();
                           const isWinner = member.liftedMonths?.includes(selectedMonth);
                           const hasWonBefore = member.liftedMonths?.some((wonMonth: number) => wonMonth < selectedMonth);
                           const isChanged = parseFloat(currentInputValue) !== dbValue && currentInputValue !== '';
@@ -2007,9 +2012,9 @@ function DashboardContent() {
                                       value={currentInputValue}
                                       onChange={(e) => setCustomAmounts({
                                         ...customAmounts,
-                                        [member.id]: e.target.value
+                                        [member.membershipId || member.id]: e.target.value
                                       })}
-                                      onBlur={() => handleSaveCustomAmount(member.id)}
+                                      onBlur={() => handleSaveCustomAmount(member.id, member.membershipId)}
                                       placeholder={selectedGroup.monthlyContribution.toString()}
                                       className={cn(
                                         "w-full h-10 pl-7 pr-3 rounded-xl border text-xs font-black transition-all focus:outline-none focus:ring-2",
@@ -2025,7 +2030,7 @@ function DashboardContent() {
 
                                 <div className="flex items-end gap-2 h-16 pt-5">
                                   <button
-                                    onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING')}
+                                    onClick={() => handleTogglePaymentStatus(member.id, isPaid ? 'PAID' : 'PENDING', member.membershipId)}
                                     className={cn(
                                       "h-10 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all active:scale-[0.96]",
                                       isPaid

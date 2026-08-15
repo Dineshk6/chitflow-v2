@@ -48,7 +48,7 @@ export default function CreateGroupModal({
   isSubmitting,
   group,
 }: CreateGroupModalProps) {
-  const [calculationType, setCalculationType] = useState<CalcType>('VARIATION_1');
+  const [calculationType, setCalculationType] = useState<CalcType>('MANUAL');
   const [name, setName] = useState('');
   const [totalValue, setTotalValue] = useState<number | ''>('');
   const [membersLimit, setMembersLimit] = useState<number | ''>('');
@@ -109,7 +109,7 @@ export default function CreateGroupModal({
         setManualSchedule(normalizeManualSchedule(group.manualSchedule, duration));
         setActiveTab(group.calculationType === 'MANUAL' ? 'schedule' : 'details');
       } else {
-        setCalculationType('VARIATION_1');
+        setCalculationType('MANUAL');
         setName('');
         setTotalValue('');
         setMembersLimit('');
@@ -366,6 +366,18 @@ export default function CreateGroupModal({
                         <p className="font-bold text-slate-800">How Custom works</p>
                         <p>1. Fill <span className="font-semibold">all fields</span> below (name, value, members, pays).</p>
                         <p>2. Then open <span className="font-semibold">Prize Schedule</span> to enter prize for each month.</p>
+                      </div>
+                    )}
+
+                    {calculationType === 'VARIATION_1' && (
+                      <div className="rounded-xl bg-amber-50/50 border border-amber-200/80 px-3 py-1.5 text-[10px] text-amber-800 font-semibold">
+                        <p>⚠️ Dues are generated dynamically. Verify schedule preview before creating.</p>
+                      </div>
+                    )}
+
+                    {calculationType === 'VARIATION_2' && (
+                      <div className="rounded-xl bg-amber-50/50 border border-amber-200/80 px-3 py-1.5 text-[10px] text-amber-800 font-semibold">
+                        <p>⚠️ Dues are generated dynamically. Verify schedule preview before creating.</p>
                       </div>
                     )}
 

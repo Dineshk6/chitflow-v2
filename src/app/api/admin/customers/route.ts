@@ -50,7 +50,7 @@ export async function GET(req: Request) {
     // Format response: each membership is a distinct chit ticket in the group
     const groupMembers = memberships.map(m => {
       const userPayments = payments
-        .filter(p => p.userId === m.userId)
+        .filter(p => p.membershipId === m.id || (!p.membershipId && p.userId === m.userId))
         .map(p => ({
           id: p.id,
           month: p.month,
@@ -172,10 +172,11 @@ export async function PATCH(req: Request) {
       const targetMonth = Number(month);
       const results = [];
       for (const p of payments) {
-        const { userId: paymentUserId, amount: paymentAmount, status: paymentStatus } = p;
+        const { userId: paymentUserId, amount: paymentAmount, status: paymentStatus, membershipId: paymentMembershipId } = p;
         const existingPayment = await prisma.payment.findFirst({
           where: {
-            userId: paymentUserId,
+            membershipId: paymentMembershipId || undefined,
+            userId: !paymentMembershipId ? paymentUserId : undefined,
             groupId,
             month: targetMonth
           }
@@ -194,6 +195,7 @@ export async function PATCH(req: Request) {
             data: {
               userId: paymentUserId,
               groupId,
+              membershipId: paymentMembershipId || null,
               month: targetMonth,
               amount: Number(paymentAmount),
               status: (paymentStatus || 'PENDING') as any
@@ -271,7 +273,8 @@ export async function PATCH(req: Request) {
 
     const existingPayment = await prisma.payment.findFirst({
       where: {
-        userId,
+        membershipId: membershipId || undefined,
+        userId: !membershipId ? userId : undefined,
         groupId,
         month: Number(month)
       }
@@ -293,6 +296,7 @@ export async function PATCH(req: Request) {
         data: {
           userId,
           groupId,
+          membershipId: membershipId || null,
           month: Number(month),
           status: status as any,
           amount: paymentAmount
