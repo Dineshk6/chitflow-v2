@@ -266,7 +266,7 @@ export default function CreateGroupModal({
               'relative w-full bg-white rounded-2xl p-4 shadow-2xl border border-slate-200 z-10 flex flex-col overflow-hidden',
               calculationType === 'MANUAL' ? 'max-w-lg' : 'max-w-md'
             )}
-            style={{ height: '90vh', maxHeight: '90vh' }}
+            style={{ maxHeight: '80vh' }}
           >
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex p-1 bg-slate-100 rounded-xl flex-1">
