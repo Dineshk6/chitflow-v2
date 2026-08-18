@@ -1,41 +1,40 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Lock, ArrowRight, Building, ShieldCheck, Phone, CheckCircle2, Eye, EyeOff, Home } from 'lucide-react';
+import { User, Mail, Lock, Building, Phone, ShieldCheck, ArrowRight, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
-/* ── Shared logo mark (same as login) ── */
-function ChitFlowMark({ size = 40 }: { size?: number }) {
+function ChitFlowMark({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
       <defs>
-        <linearGradient id="rMarkGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#6366f1" />
+        <linearGradient id="markGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#4f46e5" />
         </linearGradient>
       </defs>
-      <rect width="44" height="44" rx="13" fill="url(#rMarkGrad)" />
-      <path d="M 10 15 L 17 22 L 10 29" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
-      <path d="M 19 15 L 26 22 L 19 29" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="33" cy="22" r="2.2" fill="white" opacity="0.85" />
+      <rect width="44" height="44" rx="10" fill="url(#markGrad)" />
+      <path d="M 12 16 L 19 22 L 12 28" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+      <path d="M 21 16 L 28 22 L 21 28" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export default function AgentRegisterPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [focused, setFocused] = React.useState<string | null>(null);
-  const [formData, setFormData] = React.useState({
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
     firstName: '', lastName: '', businessName: '',
     email: '', phone: '', password: '', inviteCode: '',
   });
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const set = (key: string, val: string) => {
     setFormData(p => ({ ...p, [key]: val }));
@@ -79,312 +78,310 @@ export default function AgentRegisterPage() {
         const result = await signIn('credentials', { identifier: formData.email, password: formData.password, redirect: false });
         router.push(result?.ok ? '/admin/dashboard' : '/auth/admin/login');
       }
-    } catch { setErrors({ general: 'Something went wrong' }); toast.error('Something went wrong'); }
-    finally { setIsLoading(false); }
+    } catch { 
+      setErrors({ general: 'Something went wrong' }); 
+      toast.error('Something went wrong'); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
-  const fieldWrap = (field: string, hasError?: boolean): React.CSSProperties => ({
-    position: 'relative', display: 'flex', alignItems: 'center', borderRadius: 13,
-    border: hasError ? '1px solid rgba(239,68,68,0.5)' : focused === field ? '1px solid rgba(99,102,241,0.65)' : '1px solid rgba(255,255,255,0.08)',
-    background: hasError ? 'rgba(239,68,68,0.04)' : focused === field ? 'rgba(99,102,241,0.07)' : 'rgba(255,255,255,0.04)',
-    boxShadow: focused === field && !hasError ? '0 0 0 3px rgba(99,102,241,0.13)' : 'none',
-    transition: 'all 0.18s ease',
-  });
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', height: 44, background: 'transparent', border: 'none',
-    outline: 'none', color: 'white', fontSize: 13, fontWeight: 500,
-    paddingLeft: 38, paddingRight: 14,
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 10, fontWeight: 700,
-    letterSpacing: '0.12em', textTransform: 'uppercase', color: '#64748b', marginBottom: 7,
-  };
-
-  const iconStyle = (field: string): React.CSSProperties => ({
-    position: 'absolute', left: 13, color: focused === field ? '#818cf8' : '#64748b',
-    transition: 'color 0.2s', pointerEvents: 'none', flexShrink: 0,
-  });
-
-  const errText = (msg?: string) => msg ? (
-    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ fontSize: 11, fontWeight: 700, color: '#f87171', marginTop: 5, paddingLeft: 2 }}>
-      {msg}
-    </motion.p>
-  ) : null;
 
   return (
-    <main style={{ minHeight: '100vh', background: '#05091a', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif', position: 'relative' }}>
-
-      {/* Global aurora */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-        background: [
-          'radial-gradient(ellipse 70% 55% at 15% 80%, rgba(37,99,235,0.18) 0%, transparent 65%)',
-          'radial-gradient(ellipse 55% 45% at 85% 15%, rgba(99,102,241,0.14) 0%, transparent 60%)',
-          '#05091a',
-        ].join(', '),
-      }} />
-
-      {/* SVG noise grain */}
-      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.028, pointerEvents: 'none', zIndex: 0 }} aria-hidden>
-        <filter id="rGrain">
-          <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#rGrain)" />
-      </svg>
-
-      {/* ════════ RESPONSIVE TOP NAV BAR (Icon Left, Home Right) ════════ */}
-      <header style={{
-        position: 'relative', zIndex: 30, width: '100%', height: 64, padding: '0 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,9,26,0.6)', backdropFilter: 'blur(12px)'
-      }}>
-        {/* LEFT: Brand Logo & Title */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+    <main className="min-h-screen bg-[#f8fafc] flex flex-col font-sans relative overflow-hidden text-slate-800">
+      
+      {/* ════════ HEADER ════════ */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-3 no-underline">
           <ChitFlowMark size={32} />
           <div>
-            <span style={{ color: 'white', fontWeight: 900, fontSize: 16, letterSpacing: '-0.03em', lineHeight: 1, display: 'block' }}>ChitFlow</span>
-            <span style={{ color: '#6366f1', fontWeight: 700, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginTop: 2 }}>Admin Console</span>
+            <span className="font-bold text-sm tracking-tight text-slate-900 block leading-none">ChitFlow</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase block mt-1 tracking-wider">Admin Console</span>
           </div>
         </Link>
 
-        {/* RIGHT: Back to Home Button */}
-        <Link href="/" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 14px', borderRadius: 10,
-          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)',
-          color: '#e2e8f0', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s ease'
-        }}>
-          <span>Home</span>
-          <ArrowRight size={14} />
+        <Link 
+          href="/" 
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold transition-all"
+        >
+          <span>Back to site</span>
+          <ArrowRight size={13} />
         </Link>
       </header>
 
       {/* Main Body Split */}
-      <div style={{ flex: 1, display: 'flex', width: '100%', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
+      <div className="flex-1 flex w-full relative z-10 overflow-hidden">
 
         {/* ════════ LEFT PANEL ════════ */}
-        <div
-          className="hidden lg:flex flex-col justify-between"
-          style={{ width: '56%', padding: '60px 56px 40px', position: 'relative', overflow: 'hidden', borderRight: '1px solid rgba(255,255,255,0.05)' }}
-        >
-          <div style={{ position: 'absolute', top: -80, left: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.13) 0%, transparent 65%)', pointerEvents: 'none' }} />
-
-          {/* Logo */}
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-            className="flex items-center gap-3">
-            <ChitFlowMark size={40} />
+        <div className="hidden lg:flex w-[50%] p-16 flex-col justify-between border-r border-slate-200 bg-white relative overflow-hidden">
+          <div className="absolute top-[-80px] left-[-60px] w-96 h-96 rounded-full bg-blue-500/5 blur-3xl pointer-events-none" />
+          
+          <div className="flex items-center gap-3">
+            <ChitFlowMark size={36} />
             <div>
-              <p style={{ color: 'white', fontWeight: 800, fontSize: 18, letterSpacing: '-0.04em', lineHeight: 1, margin: 0 }}>ChitFlow</p>
-              <p style={{ color: '#6366f1', fontWeight: 700, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', margin: 0, marginTop: 1 }}>Admin Console</p>
+              <p className="font-extrabold text-slate-900 text-base leading-none m-0">ChitFlow</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 m-0">Admin Workspace Registration</p>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Hero */}
-          <motion.div
-            initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.1 }}
-            style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', gap: 28, maxWidth: 440 }}
+          {/* Hero Copy */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.4 }} 
+            className="space-y-6 max-w-sm"
           >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 20, height: 2, background: 'linear-gradient(90deg,#3b82f6,#6366f1)', borderRadius: 2 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(99,102,241,0.85)' }}>Get Started Free</span>
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Get Started Free</span>
+              <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight">
+                Launch your custom chit workspace.
+              </h1>
+            </div>
+
+            <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+              Create an admin account to host chit fund circles, register members, and generate transparent schedules automatically.
+            </p>
+
+            <div className="flex flex-col gap-3.5 pt-2">
+              {[
+                'Host unlimited chit groups with custom schemes',
+                'Automated dividend & contribution calculations',
+                'Real-time payment tracking across all members',
+                'Instant notifications built-in'
+              ].map((f, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <CheckCircle2 size={15} className="text-blue-600 shrink-0" />
+                  <span className="text-slate-700 text-xs font-semibold">{f}</span>
                 </div>
-                <h1 style={{ fontSize: 44, fontWeight: 900, color: 'white', lineHeight: 1.06, letterSpacing: '-0.035em', margin: 0 }}>
-                  Launch your{' '}
-                  <span style={{ background: 'linear-gradient(100deg, #60a5fa 10%, #818cf8 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    chit fund
-                  </span>{' '}
-                  workspace.
-                </h1>
-              </div>
-
-              <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.75, maxWidth: 360, margin: 0 }}>
-                Create your admin account to host groups, manage enrolled members, and run financial summaries — all in one place.
-              </p>
-
-              {/* Feature bullets */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {[
-                  'Host unlimited chit groups with custom schemes',
-                  'Automated dividend & contribution calculations',
-                  'Real-time payment tracking across all members',
-                  'Instant SMS & email notifications built-in',
-                ].map((f, i) => (
-                  <motion.div key={f} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 + i * 0.1 }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <CheckCircle2 size={15} style={{ color: '#3b82f6', flexShrink: 0 }} />
-                    <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 500 }}>{f}</span>
-                  </motion.div>
-                ))}
-              </div>
+              ))}
+            </div>
           </motion.div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-4">
-            <p style={{ color: '#475569', fontSize: 11, fontWeight: 600, margin: 0 }}>© {new Date().getFullYear()} ChitFlow Systems</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-              <span style={{ color: '#475569', fontSize: 11, fontWeight: 600 }}>All systems operational</span>
-            </div>
+          <div className="text-slate-400 text-[11px] font-semibold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>All systems operational • © {new Date().getFullYear()} ChitFlow</span>
           </div>
         </div>
 
-        {/* ════════ RIGHT PANEL — Scrollable form ════════ */}
-        <div className="flex-1 flex items-center justify-center p-6 md:p-10 overflow-y-auto" style={{ zIndex: 1 }}>
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.18 }}
-            style={{ width: '100%', maxWidth: 460 }}
+        {/* ════════ RIGHT PANEL — Scrollable Form ════════ */}
+        <div className="flex-1 flex items-center justify-center p-6 md:p-10 overflow-y-auto">
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.4, delay: 0.05 }}
+            className="w-full max-w-md my-auto"
           >
-            {/* Card */}
-            <div style={{ position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 26, padding: '32px 28px', boxShadow: '0 32px 80px rgba(0,0,0,0.55)', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
+            {/* Card Wrapper */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-7 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
 
-              {/* Header */}
-              <div style={{ marginBottom: 20, position: 'relative' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 100, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.22)', marginBottom: 10 }}>
-                  <ShieldCheck size={10} style={{ color: '#818cf8' }} />
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#818cf8' }}>Agent Registration</span>
+              <div className="mb-5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-100 mb-3">
+                  <ShieldCheck size={12} className="text-blue-600" />
+                  <span className="text-[9px] font-black uppercase tracking-wider text-blue-700">Workspace Invitation Required</span>
                 </div>
-                <h2 style={{ color: 'white', fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', margin: 0, lineHeight: 1.1 }}>Request Admin Access</h2>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Request Admin Access</h2>
               </div>
 
-              {/* General error */}
+              {/* General Error Banner */}
               <AnimatePresence>
                 {errors.general && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden" style={{ marginBottom: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 12, fontWeight: 600 }}>
-                      <ShieldCheck size={13} />{errors.general}
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }} 
+                    animate={{ opacity: 1, height: 'auto' }} 
+                    exit={{ opacity: 0, height: 0 }} 
+                    className="overflow-hidden mb-4"
+                  >
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold">
+                      <ShieldCheck size={14} className="shrink-0" />
+                      <span>{errors.general}</span>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-                {/* Name Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <form onSubmit={handleRegister} className="space-y-3.5">
+                
+                {/* First Name & Last Name Row */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label style={labelStyle}>First Name</label>
-                    <div style={fieldWrap('fn', !!errors.firstName)}>
-                      <User size={13} style={iconStyle('fn')} />
-                      <input type="text" value={formData.firstName} placeholder="Rajesh"
-                        onFocus={() => setFocused('fn')} onBlur={() => setFocused(null)}
-                        onChange={e => set('firstName', e.target.value)} style={inputStyle}
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">First Name</label>
+                    <div className={cn(
+                      'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                      errors.firstName ? 'border-rose-300 bg-rose-50/20' : focused === 'fn' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                    )}>
+                      <User size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'fn' && 'text-blue-600')} />
+                      <input
+                        type="text"
+                        value={formData.firstName}
+                        onFocus={() => setFocused('fn')}
+                        onBlur={() => setFocused(null)}
+                        onChange={e => set('firstName', e.target.value)}
+                        placeholder="Rajesh"
+                        className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                       />
                     </div>
-                    {errText(errors.firstName)}
                   </div>
 
                   <div>
-                    <label style={labelStyle}>Last Name</label>
-                    <div style={fieldWrap('ln', !!errors.lastName)}>
-                      <User size={13} style={iconStyle('ln')} />
-                      <input type="text" value={formData.lastName} placeholder="Kumar"
-                        onFocus={() => setFocused('ln')} onBlur={() => setFocused(null)}
-                        onChange={e => set('lastName', e.target.value)} style={inputStyle}
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Last Name</label>
+                    <div className={cn(
+                      'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                      errors.lastName ? 'border-rose-300 bg-rose-50/20' : focused === 'ln' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                    )}>
+                      <User size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'ln' && 'text-blue-600')} />
+                      <input
+                        type="text"
+                        value={formData.lastName}
+                        onFocus={() => setFocused('ln')}
+                        onBlur={() => setFocused(null)}
+                        onChange={e => set('lastName', e.target.value)}
+                        placeholder="Kumar"
+                        className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                       />
                     </div>
-                    {errText(errors.lastName)}
                   </div>
                 </div>
 
                 {/* Business Name */}
                 <div>
-                  <label style={labelStyle}>Business / Agency Name</label>
-                  <div style={fieldWrap('bn', !!errors.businessName)}>
-                    <Building size={13} style={iconStyle('bn')} />
-                    <input type="text" value={formData.businessName} placeholder="Kumar Chits & Investments"
-                      onFocus={() => setFocused('bn')} onBlur={() => setFocused(null)}
-                      onChange={e => set('businessName', e.target.value)} style={inputStyle}
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Agency / Business Name</label>
+                  <div className={cn(
+                    'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                    errors.businessName ? 'border-rose-300 bg-rose-50/20' : focused === 'bn' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                  )}>
+                    <Building size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'bn' && 'text-blue-600')} />
+                    <input
+                      type="text"
+                      value={formData.businessName}
+                      onFocus={() => setFocused('bn')}
+                      onBlur={() => setFocused(null)}
+                      onChange={e => set('businessName', e.target.value)}
+                      placeholder="e.g. Kumar Chit Funds"
+                      className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                     />
                   </div>
-                  {errText(errors.businessName)}
                 </div>
 
-                {/* Email & Phone */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {/* Email Address & Phone Number Row */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label style={labelStyle}>Email Address</label>
-                    <div style={fieldWrap('em', !!errors.email)}>
-                      <Mail size={13} style={iconStyle('em')} />
-                      <input type="email" value={formData.email} placeholder="rajesh@agency.com"
-                        onFocus={() => setFocused('em')} onBlur={() => setFocused(null)}
-                        onChange={e => set('email', e.target.value)} style={inputStyle}
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                    <div className={cn(
+                      'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                      errors.email ? 'border-rose-300 bg-rose-50/20' : focused === 'em' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                    )}>
+                      <Mail size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'em' && 'text-blue-600')} />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onFocus={() => setFocused('em')}
+                        onBlur={() => setFocused(null)}
+                        onChange={e => set('email', e.target.value)}
+                        placeholder="rajesh@agency.com"
+                        className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                       />
                     </div>
-                    {errText(errors.email)}
                   </div>
 
                   <div>
-                    <label style={labelStyle}>Mobile Number</label>
-                    <div style={fieldWrap('ph', !!errors.phone)}>
-                      <Phone size={13} style={iconStyle('ph')} />
-                      <input type="tel" value={formData.phone} maxLength={10} placeholder="9876543210"
-                        onFocus={() => setFocused('ph')} onBlur={() => setFocused(null)}
-                        onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} style={inputStyle}
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mobile</label>
+                    <div className={cn(
+                      'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                      errors.phone ? 'border-rose-300 bg-rose-50/20' : focused === 'ph' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                    )}>
+                      <Phone size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'ph' && 'text-blue-600')} />
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        maxLength={10}
+                        onFocus={() => setFocused('ph')}
+                        onBlur={() => setFocused(null)}
+                        onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="9876543210"
+                        className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                       />
                     </div>
-                    {errText(errors.phone)}
                   </div>
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label style={labelStyle}>Password</label>
-                  <div style={fieldWrap('pw', !!errors.password)}>
-                    <Lock size={13} style={iconStyle('pw')} />
-                    <input type={showPassword ? 'text' : 'password'} value={formData.password} placeholder="••••••••••••"
-                      onFocus={() => setFocused('pw')} onBlur={() => setFocused(null)}
-                      onChange={e => set('password', e.target.value)} style={{ ...inputStyle, paddingRight: 40 }}
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Password</label>
+                  <div className={cn(
+                    'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3 pr-10',
+                    errors.password ? 'border-rose-300 bg-rose-50/20' : focused === 'pw' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                  )}>
+                    <Lock size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'pw' && 'text-blue-600')} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onFocus={() => setFocused('pw')}
+                      onBlur={() => setFocused(null)}
+                      onChange={e => set('password', e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      style={{ position: 'absolute', right: 12, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 text-slate-400 hover:text-slate-655 outline-none border-none bg-transparent cursor-pointer flex items-center"
                     >
                       {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
                   </div>
-                  {errText(errors.password)}
                 </div>
 
                 {/* Invite Code */}
                 <div>
-                  <label style={labelStyle}>Registration Access Code</label>
-                  <div style={fieldWrap('inv', !!errors.inviteCode)}>
-                    <ShieldCheck size={13} style={iconStyle('inv')} />
-                    <input type="text" value={formData.inviteCode} placeholder="CHITFLOW-ADMIN-2026"
-                      onFocus={() => setFocused('inv')} onBlur={() => setFocused(null)}
-                      onChange={e => set('inviteCode', e.target.value)} style={inputStyle}
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration Access Code</label>
+                  <div className={cn(
+                    'relative flex items-center rounded-xl border bg-slate-50 transition-all px-3',
+                    errors.inviteCode ? 'border-rose-300 bg-rose-50/20' : focused === 'inv' ? 'border-blue-500 bg-white ring-2 ring-blue-500/5' : 'border-slate-200'
+                  )}>
+                    <ShieldCheck size={13} className={cn('text-slate-400 mr-2 shrink-0', focused === 'inv' && 'text-blue-600')} />
+                    <input
+                      type="text"
+                      value={formData.inviteCode}
+                      onFocus={() => setFocused('inv')}
+                      onBlur={() => setFocused(null)}
+                      onChange={e => set('inviteCode', e.target.value)}
+                      placeholder="Enter access code"
+                      className="w-full h-10 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                     />
                   </div>
-                  {errText(errors.inviteCode)}
                 </div>
 
-                {/* Submit */}
+                {/* Submit Button */}
                 <button
-                  type="submit" disabled={isLoading}
-                  style={{ width: '100%', height: 46, marginTop: 4, borderRadius: 13, background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: 'white', fontSize: 13, fontWeight: 800, border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(37,99,235,0.35)' }}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/10 cursor-pointer pt-0.5"
                 >
-                  {isLoading
-                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    : <><span>Create Admin Account</span><ArrowRight size={15} /></>
-                  }
+                  {isLoading ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span>Register Workspace</span>
+                      <ArrowRight size={14} />
+                    </>
+                  )}
                 </button>
               </form>
 
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
-                <p style={{ color: '#64748b', fontSize: 13, fontWeight: 500, margin: 0 }}>
-                  Already registered?{' '}
-                  <Link href="/auth/admin/login" style={{ color: '#818cf8', fontWeight: 700, textDecoration: 'none' }}>
-                    Sign in
+              <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+                <p className="text-slate-400 text-xs font-semibold m-0">
+                  Already have a workspace?{' '}
+                  <Link href="/auth/admin/login" className="text-blue-600 font-bold hover:underline">
+                    Sign In
                   </Link>
                 </p>
               </div>
             </div>
           </motion.div>
+
         </div>
       </div>
     </main>

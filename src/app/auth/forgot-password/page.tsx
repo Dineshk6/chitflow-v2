@@ -1,29 +1,34 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
-  const [submitted, setSubmitted] = React.useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center relative p-6">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-slate-800 font-sans relative">
       {/* Floating Back to Home */}
-      <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 hover:text-white text-xs font-extrabold uppercase tracking-widest transition-all duration-300 hover:bg-slate-900/90 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95 group">
-        <ArrowLeft size={14} className="text-slate-400 group-hover:text-blue-400 group-hover:-translate-x-1 transition-transform duration-300" />
-        Back to Home
+      <Link 
+        href="/" 
+        className="absolute top-6 left-6 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 text-xs font-bold transition-all no-underline"
+      >
+        <ArrowLeft size={13} className="text-slate-450" />
+        <span>Back to Home</span>
       </Link>
 
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 p-10 md:p-14 shadow-2xl relative overflow-hidden">
-        {/* Decorative */}
-        <div className="absolute top-0 right-0 w-32 h-32 gradient-blue opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-8 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
         
         <div className="relative z-10">
-          <Link href="/auth/admin/login" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors mb-10 group">
-            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-            Back to Login
+          <Link 
+            href="/auth/admin/login" 
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-450 hover:text-blue-600 transition-colors mb-8 no-underline group"
+          >
+            <ArrowLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back to Login</span>
           </Link>
 
           {!submitted ? (
@@ -31,30 +36,30 @@ export default function ForgotPasswordPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-3">Reset Password</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed mb-10">
-                Enter your email address and we'll send you a link to reset your password.
+              <h1 className="text-xl font-black text-slate-900 tracking-tight mb-2">Reset Password</h1>
+              <p className="text-slate-550 text-xs font-semibold leading-relaxed mb-6">
+                Enter your email address and we will send you a secure link to reset your administrator password.
               </p>
 
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+                  <div className="relative flex items-center rounded-xl border border-slate-200 bg-slate-50 transition-all px-3.5 focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/5">
+                    <Mail className="text-slate-400 mr-2.5" size={14} />
                     <input 
                       type="email" 
                       placeholder="name@company.com" 
-                      className="w-full h-14 pl-12 pr-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full h-11 bg-transparent text-slate-800 text-xs font-extrabold focus:outline-none placeholder:text-slate-400 placeholder:font-semibold"
                     />
                   </div>
                 </div>
 
                 <button 
                   onClick={() => setSubmitted(true)}
-                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/10 cursor-pointer pt-0.5"
                 >
-                  Send Reset Link
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  <span>Send Reset Link</span>
+                  <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
             </motion.div>
@@ -64,16 +69,16 @@ export default function ForgotPasswordPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center py-4"
             >
-              <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 mx-auto mb-8">
-                <ShieldCheck size={40} />
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mx-auto mb-6">
+                <ShieldCheck size={32} />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">Email Sent!</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed mb-10">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight mb-2">Instructions Sent!</h2>
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8">
                 We've sent password reset instructions to your email address. Please check your inbox.
               </p>
               <button 
                 onClick={() => setSubmitted(false)}
-                className="text-sm font-bold text-blue-600 hover:underline"
+                className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none outline-none cursor-pointer"
               >
                 Didn't receive the email? Try again
               </button>
@@ -82,8 +87,8 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
       
-      <p className="mt-12 text-xs font-bold text-slate-400 uppercase tracking-widest">
-        Need help? <Link href="#" className="text-blue-600 hover:underline">Contact Support</Link>
+      <p className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+        Need assistance? <Link href="#" className="text-blue-600 hover:underline">Contact Support</Link>
       </p>
     </div>
   );

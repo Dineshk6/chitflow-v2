@@ -6,462 +6,503 @@ import {
   Shield,
   ArrowRight,
   Layers,
-  Users,
-  Wallet,
   FileText,
   ChevronDown,
-  CheckCircle2,
+  Coins,
+  TrendingUp,
+  Download,
+  Mail,
+  Phone,
+  ArrowUp,
+  Activity,
+  Award,
+  Info,
+  X,
+  Menu
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
-/* ── Brand Logo Mark ── */
-function ChitFlowMark({ size = 36 }: { size?: number }) {
+/* ── Brand Logo Mark (Solid Blue to prevent SVG rendering blur) ── */
+function ChitFlowMark({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-      <defs>
-        <linearGradient id="hpMarkGradMain" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#6366f1" />
-        </linearGradient>
-      </defs>
-      <rect width="44" height="44" rx="12" fill="url(#hpMarkGradMain)" />
-      <path d="M 10 15 L 17 22 L 10 29" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-      <path d="M 19 15 L 26 22 L 19 29" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="33" cy="22" r="2.2" fill="white" opacity="0.9" />
+      <rect width="44" height="44" rx="8" fill="#2563eb" />
+      <path d="M 13 16 L 19 22 L 13 28" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+      <path d="M 21 16 L 27 22 L 21 28" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-const SCHEMES = [
-  { name: 'Silver Pool', value: 500000, duration: 20, monthly: 25000, winner: 475000 },
-  { name: 'Gold Pool', value: 1000000, duration: 20, monthly: 50000, winner: 950000 },
-  { name: 'Diamond Pool', value: 2000000, duration: 40, monthly: 50000, winner: 1900000 },
-];
-
 const FAQS = [
   {
     q: 'How does ChitFlow compute monthly payouts and dividend splits?',
-    a: 'ChitFlow automatically deducts the 5% organizer commission from the pool, then divides the remaining auction discount equally across all non-winning members in real-time.'
+    a: 'ChitFlow automatically deducts the 5% organizer commission from the pool, then divides the remaining auction discount equally across all non-winning members in real-time. This guarantees mathematical precision and prevents manual miscalculations.'
   },
   {
     q: 'Can members log in to view their individual payment ledgers?',
-    a: 'Yes. Members access their own dedicated portal using their mobile number to track monthly credits, view upcoming due dates, and download payment receipts.'
+    a: 'Yes. Members access their own dedicated portal using their mobile number. They can track monthly credits, view upcoming due dates, see historical dividends, and download official payment receipts.'
   },
   {
     q: 'Are reports available for offline record-keeping and printing?',
-    a: 'Yes. You can export complete scheme summary sheets, member directories, and transaction ledgers directly into print-ready PDF files.'
-  },
-  {
-    q: 'Is there any complex software installation required?',
-    a: 'No installation required. ChitFlow is a 100% cloud-based responsive web platform accessible from any mobile phone, tablet, or laptop.'
+    a: 'Yes. You can export complete scheme summary sheets, member directories, and transaction ledgers directly into print-ready PDF files. These documents are designed to be clear and professional.'
   }
 ];
 
 export default function LandingPage() {
-  const [selectedScheme, setSelectedScheme] = useState(1);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const [consoleTab, setConsoleTab] = useState<'overview' | 'auction' | 'reports'>('overview');
 
-  const scheme = SCHEMES[selectedScheme];
+  // Interactive Calculator State
+  const [totalValue, setTotalValue] = useState<number>(1000000);
+  const [months, setMonths] = useState<number>(20);
+  const [bidDiscount, setBidDiscount] = useState<number>(25);
+
+  // Calculate Calculator Metrics
+  const organiserCommission = totalValue * 0.05;
+  const winnerPayout = totalValue - (totalValue * (bidDiscount / 100));
+  const totalDividendPool = Math.max(0, (totalValue * (bidDiscount / 100)) - organiserCommission);
+  const dividendPerMember = totalDividendPool / months;
+  const regularInstallment = totalValue / months;
+  const netContribution = regularInstallment - dividendPerMember;
+
+  const applyPreset = (val: number, dur: number, disc: number) => {
+    setTotalValue(val);
+    setMonths(dur);
+    setBidDiscount(disc);
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#05091a', color: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif', position: 'relative', overflowX: 'hidden' }}>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans relative overflow-x-hidden selection:bg-blue-500/10 selection:text-blue-700">
+      
+      {/* ════════ HEADER (Sticky top 0 - Solid background, no blur) ════════ */}
+      <nav className="sticky top-0 z-50 bg-white border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            
+            {/* Brand Logo */}
+            <Link href="/" className="flex items-center gap-2.5 no-underline">
+              <ChitFlowMark size={26} />
+              <div>
+                <p className="text-slate-900 font-bold text-sm tracking-tight leading-none">ChitFlow</p>
+                <p className="text-slate-400 font-bold text-[8px] tracking-[0.14em] uppercase mt-0.5 leading-none">Smart Savings Circles</p>
+              </div>
+            </Link>
 
-      {/* ════════ AURORA MESH BACKGROUND ════════ */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div style={{ position: 'absolute', top: -160, left: '15%', width: 'min(800px, 90vw)', height: 'min(800px, 90vw)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 65%)' }} />
-        <div style={{ position: 'absolute', top: '40%', right: -100, width: 'min(750px, 85vw)', height: 'min(750px, 85vw)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 65%)' }} />
-      </div>
-
-      {/* SVG NOISE GRAIN */}
-      <svg className="fixed top-0 left-0 w-full h-full pointer-events-none z-0 opacity-20">
-        <filter id="hpNoiseGrad">
-          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#hpNoiseGrad)" />
-      </svg>
-
-      {/* ════════ NAVBAR ════════ */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        height: 68, background: 'rgba(5,9,26,0.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          
-          {/* Left: Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 no-underline">
-            <ChitFlowMark size={34} />
-            <div>
-              <p style={{ color: 'white', fontWeight: 900, fontSize: 17, letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>ChitFlow</p>
-              <p style={{ color: '#6366f1', fontWeight: 700, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: 0, marginTop: 2 }}>Admin Suite</p>
+            {/* Nav Links */}
+            <div className="hidden md:flex items-center gap-7">
+              <a href="#features" className="text-xs font-bold text-slate-500 hover:text-slate-900 uppercase tracking-wider">Features</a>
+              <a href="#calculator" className="text-xs font-bold text-slate-500 hover:text-slate-900 uppercase tracking-wider">Simulator</a>
+              <a href="#faq" className="text-xs font-bold text-slate-500 hover:text-slate-900 uppercase tracking-wider">FAQ</a>
             </div>
-          </Link>
 
-          {/* Desktop Nav Links (Hidden on small mobile) */}
-          <div className="hidden lg:flex items-center gap-8">
-            <a href="#features" className="text-slate-400 hover:text-white text-xs font-semibold tracking-wide uppercase transition-colors">Features</a>
-            <a href="#calculator" className="text-slate-400 hover:text-white text-xs font-semibold tracking-wide uppercase transition-colors">Calculator</a>
-            <a href="#faq" className="text-slate-400 hover:text-white text-xs font-semibold tracking-wide uppercase transition-colors">FAQ</a>
+            {/* Action Buttons */}
+            <div className="hidden sm:flex items-center gap-3.5">
+              <Link href="/auth/member/login" className="text-slate-500 hover:text-slate-800 text-xs font-bold tracking-wider uppercase">
+                Member Login
+              </Link>
+              <Link href="/auth/admin/login" className="inline-flex items-center gap-1 h-9 px-4 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider">
+                <Shield size={12} className="mr-1" />
+                <span>Agent Login</span>
+              </Link>
+            </div>
+
+            {/* Mobile Menu Icon */}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
           </div>
-
-          {/* Right Action: Agent Sign In Button */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/auth/member/login" className="hidden sm:inline-block text-slate-300 hover:text-white text-xs font-bold px-3 py-2 transition-colors">
-              Member Login
-            </Link>
-            <Link href="/auth/admin/login" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 10,
-              background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: 'white', fontSize: 12, fontWeight: 800,
-              textDecoration: 'none', boxShadow: '0 4px 16px rgba(37,99,235,0.3)', transition: 'all 0.15s ease'
-            }}>
-              <Shield size={14} />
-              <span>Agent Sign In</span>
-            </Link>
-          </div>
-
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="absolute top-14 left-4 right-4 bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-3.5 md:hidden z-50">
+            <a 
+              href="#features" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-slate-700 hover:text-slate-900 text-xs font-bold tracking-wider uppercase py-2 border-b border-slate-100"
+            >
+              Features
+            </a>
+            <a 
+              href="#calculator" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-slate-700 hover:text-slate-900 text-xs font-bold tracking-wider uppercase py-2 border-b border-slate-100"
+            >
+              Simulator
+            </a>
+            <a 
+              href="#faq" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-slate-700 hover:text-slate-900 text-xs font-bold tracking-wider uppercase py-2 border-b border-slate-100"
+            >
+              FAQ
+            </a>
+            <div className="flex flex-col gap-2 pt-1.5">
+              <Link 
+                href="/auth/member/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold uppercase"
+              >
+                Member Login
+              </Link>
+              <Link 
+                href="/auth/admin/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2 rounded-lg bg-blue-600 text-white text-xs font-bold uppercase"
+              >
+                Agent Login
+              </Link>
+            </div>
+          </div>
+        )}
       </nav>
 
-      {/* ════════ HERO SECTION ════════ */}
-      <header className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 sm:pt-40 pb-16 sm:pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+      {/* ════════ HERO SECTION (Balanced spacing) ════════ */}
+      <header className="relative z-10 max-w-5xl mx-auto px-4 pt-10 sm:pt-14 pb-8 sm:pb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           
-          {/* Left Column: Copy & Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="lg:col-span-7 flex flex-col gap-6 text-left"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 w-fit">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-[11px] font-extrabold tracking-wider uppercase text-blue-300">
-                Digital Chit Fund Platform
-              </span>
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.08] tracking-tight text-white">
-              Manage chit funds with{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                absolute clarity.
+          {/* Copy and Actions Column */}
+          <div className="lg:col-span-7 flex flex-col gap-5 text-left">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-[1.12] tracking-tight text-slate-900">
+              The new standard for collective{' '}
+              <span className="text-blue-600">
+                savings.
               </span>
             </h1>
 
-            <p className="text-slate-400 text-base sm:text-lg leading-relaxed max-w-xl">
-              ChitFlow replaces manual ledgers with structured financial records, real-time dividend calculations, and instant member notifications.
+            <p className="text-slate-550 text-sm sm:text-base leading-relaxed max-w-lg font-semibold">
+              ChitFlow replaces outdated registers with digital records, automated auction math, instant dividend credits, and unified organizer portals.
             </p>
 
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-              <Link href="/auth/admin/register" style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, height: 48, padding: '0 26px', borderRadius: 12,
-                background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: 'white', fontSize: 13, fontWeight: 800,
-                textDecoration: 'none', boxShadow: '0 6px 24px rgba(37,99,235,0.35)', transition: 'all 0.15s ease'
-              }}>
-                Register as Agent
-                <ArrowRight size={15} />
+            <div className="flex flex-row items-center gap-3 pt-1">
+              <Link href="/auth/admin/register" className="inline-flex items-center justify-center gap-1.5 h-10 px-4.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider">
+                <span>Start Workspace</span>
+                <ArrowRight size={13} />
               </Link>
-              <Link href="/auth/member/login" style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, padding: '0 24px', borderRadius: 12,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 13, fontWeight: 700,
-                textDecoration: 'none', transition: 'all 0.15s ease'
-              }}>
-                Member Portal
+              <Link href="/auth/member/login" className="inline-flex items-center justify-center gap-2 h-10 px-4.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider">
+                <span>Member Portal</span>
               </Link>
             </div>
 
-            {/* Feature Metrics Bar */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/5">
+            {/* Badges */}
+            <div className="grid grid-cols-3 gap-4 pt-5 border-t border-slate-200 mt-2">
               <div>
-                <p className="text-xl sm:text-2xl font-black text-white">100%</p>
-                <p className="text-xs font-semibold text-slate-500 mt-1">Automated Math</p>
+                <span className="text-base font-black text-slate-900 block">0% Error</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider mt-0.5 block">Dividend Math</span>
               </div>
               <div>
-                <p className="text-xl sm:text-2xl font-black text-white">5%</p>
-                <p className="text-xs font-semibold text-slate-500 mt-1">Fixed Commission</p>
+                <span className="text-base font-black text-slate-900 block">5% Flat</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider mt-0.5 block">Commission</span>
               </div>
               <div>
-                <p className="text-xl sm:text-2xl font-black text-white">Instant</p>
-                <p className="text-xs font-semibold text-slate-500 mt-1">PDF Reports</p>
+                <span className="text-base font-black text-slate-900 block">Instant</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider mt-0.5 block">PDF Ledgers</span>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Right Column: Console Showcase */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.12 }}
-            className="lg:col-span-5 relative"
-          >
-            <div style={{
-              background: '#0c1228', borderRadius: 24, border: '1px solid rgba(255,255,255,0.08)',
-              padding: '24px', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', position: 'relative', overflow: 'hidden'
-            }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
+          {/* Right Column: Console Showcase Card (Solid styling) ── */}
+          <div className="lg:col-span-5">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-600" />
 
-              {/* Console Header Bar */}
-              <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-5">
-                <div className="flex items-center gap-3">
-                  <ChitFlowMark size={32} />
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <div className="flex items-center gap-2">
+                  <ChitFlowMark size={22} />
                   <div>
-                    <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: 0, lineHeight: 1 }}>Console Preview</p>
-                    <p style={{ color: '#6366f1', fontWeight: 700, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: 0, marginTop: 3 }}>Live Dashboard</p>
+                    <p className="text-slate-900 font-extrabold text-xs leading-none">Circle Workspace</p>
+                    <p className="text-blue-600 font-bold text-[7px] tracking-wider uppercase mt-1 leading-none">Live Audit Feed</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                <span className="text-[8px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase leading-none">
                   Active
                 </span>
               </div>
 
-              {/* Console Tabs */}
-              <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl mb-4">
-                {(['overview', 'auction', 'reports'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setConsoleTab(tab)}
-                    className={`py-1.5 text-[11px] font-bold rounded-lg capitalize transition-all ${
-                      consoleTab === tab ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/60">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-0.5">
+                      <Activity size={9} /> Total Pool
+                    </p>
+                    <p className="text-base font-black text-slate-900">₹10,00,000</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                    <p className="text-[8px] font-bold text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-0.5">
+                      <Award size={9} /> Winner Payout
+                    </p>
+                    <p className="text-base font-black text-blue-600">₹9,50,000</p>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/60 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-extrabold text-[10px]">
+                      RK
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-extrabold text-slate-800 leading-none">Rajesh Kumar</p>
+                      <p className="text-[7px] text-slate-400 mt-1 leading-none">Month 1 • Gold Scheme</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] font-black text-emerald-600 leading-none">₹4,85,000</span>
+                    <p className="text-[7px] text-slate-400 mt-1 leading-none">Disbursed</p>
+                  </div>
+                </div>
               </div>
-
-              {/* Tab Content */}
-              {consoleTab === 'overview' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Gold Scheme Pool</p>
-                      <p className="text-lg sm:text-xl font-black text-white">₹10,00,000</p>
-                    </div>
-                    <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                      <p className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-1">Winner Payout</p>
-                      <p className="text-lg sm:text-xl font-black text-blue-400">₹9,50,000</p>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xs">
-                        RK
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white">Rajesh Kumar</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Month 1 • Gold Scheme</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-black text-emerald-400">₹4,85,000</span>
-                  </div>
-                </div>
-              )}
-
-              {consoleTab === 'auction' && (
-                <div className="space-y-3">
-                  <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Lowest Bid Margin:</span>
-                      <span className="text-white font-bold">₹50,000 (5%)</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Dividends / Member:</span>
-                      <span className="text-emerald-400 font-bold">₹2,375</span>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-slate-400 p-2 bg-white/[0.02] rounded-lg text-center font-medium">
-                    Auction automatically recorded with audit timestamp
-                  </div>
-                </div>
-              )}
-
-              {consoleTab === 'reports' && (
-                <div className="space-y-2">
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-blue-400" />
-                      <span className="text-white font-bold">Monthly_Dividend_Report.pdf</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-400 font-bold">Ready</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-indigo-400" />
-                      <span className="text-white font-bold">Group_Ledger_Summary.pdf</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-400 font-bold">Ready</span>
-                  </div>
-                </div>
-              )}
             </div>
-          </motion.div>
+          </div>
 
         </div>
       </header>
 
-      {/* ════════ SCHEME CALCULATOR SECTION ════════ */}
-      <section id="calculator" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-white/5">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-            Scheme Schedule Calculator
-          </h2>
-          <p className="text-slate-400 text-sm sm:text-base font-medium mt-3">
-            Select a scheme preset to preview instant schedule estimates.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-4xl mx-auto">
-          {/* Controls */}
-          <div className="lg:col-span-6 p-6 sm:p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col gap-6">
-            <div>
-              <label className="text-[10px] font-extrabold tracking-wider uppercase text-slate-500 block mb-3">
-                Select Scheme Preset
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {SCHEMES.map((s, idx) => (
-                  <button
-                    key={s.name}
-                    type="button"
-                    onClick={() => setSelectedScheme(idx)}
-                    className={`h-10 rounded-xl border text-xs font-bold transition-all ${
-                      selectedScheme === idx
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 border-transparent text-white shadow-md'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {s.name.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
+      {/* ════════ CORE FEATURES GRID ════════ */}
+      <section id="features" className="max-w-5xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
+            <div className="w-8 h-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-3">
+              <Layers size={16} />
             </div>
-
-            <div>
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                Total Chit Value
-              </span>
-              <p className="text-3xl font-black text-white tracking-tight">
-                ₹{scheme.value.toLocaleString('en-IN')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                <p className="text-[9px] font-extrabold text-slate-500 uppercase mb-1">Regular Pay</p>
-                <p className="text-base font-black text-white">₹{scheme.monthly.toLocaleString('en-IN')}</p>
-              </div>
-              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <p className="text-[9px] font-extrabold text-emerald-400 uppercase mb-1">Max Winner Payout</p>
-                <p className="text-base font-black text-emerald-400">₹{scheme.winner.toLocaleString('en-IN')}</p>
-              </div>
-            </div>
+            <h3 className="text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Automated Ledgers</h3>
+            <p className="text-slate-550 text-xs sm:text-sm leading-relaxed font-semibold">
+              ChitFlow computes member payments, commission cuts, and monthly dividend splits automatically with zero calculation error.
+            </p>
           </div>
 
-          {/* Details */}
-          <div className="lg:col-span-6 p-6 sm:p-8 rounded-2xl bg-[#0c1228] border border-white/[0.08] flex flex-col justify-between gap-6 relative overflow-hidden">
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
-
-            <div className="space-y-4">
-              <span className="text-xs font-extrabold text-indigo-400 tracking-wider uppercase">Estimated Metrics</span>
-              
-              <div className="space-y-3 pt-2">
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-slate-400 font-medium">Organiser Commission (5%):</span>
-                  <span className="text-white font-bold">₹{(scheme.value * 0.05).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-slate-400 font-medium">Duration Limit:</span>
-                  <span className="text-white font-bold">{scheme.duration} Months</span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-slate-400 font-medium">Max Monthly Dividend / Member:</span>
-                  <span className="text-emerald-400 font-bold">Dynamic</span>
-                </div>
-              </div>
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
+            <div className="w-8 h-8 rounded bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 mb-3">
+              <Shield size={16} />
             </div>
-
-            <Link href="/auth/admin/register" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, borderRadius: 12,
-              background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: 'white', fontSize: 13, fontWeight: 800,
-              textDecoration: 'none', boxShadow: '0 4px 16px rgba(37,99,235,0.35)'
-            }}>
-              Create Group with this Schedule
-              <ArrowRight size={15} />
-            </Link>
+            <h3 className="text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Audited Trail</h3>
+            <p className="text-slate-555 text-xs sm:text-sm leading-relaxed font-semibold">
+              Track historical logs easily. Every bid declaration and dividend dispatch is logged permanently in your server.
+            </p>
           </div>
+
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
+            <div className="w-8 h-8 rounded bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 mb-3">
+              <FileText size={16} />
+            </div>
+            <h3 className="text-slate-900 text-xs font-black uppercase tracking-wider mb-2">PDF Receipts</h3>
+            <p className="text-slate-555 text-xs sm:text-sm leading-relaxed font-semibold">
+              Download clean offline summary reports and transaction receipts ready to be printed or shared.
+            </p>
+          </div>
+
         </div>
       </section>
 
-      {/* ════════ FEATURES GRID ════════ */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-white/5">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-            Platform Capabilities
+      {/* ════════ INTERACTIVE SAVINGS SIMULATOR ════════ */}
+      <section id="calculator" className="max-w-5xl mx-auto px-4 py-8">
+        <div className="text-center mb-6">
+          <span className="text-[8px] font-black tracking-wider uppercase text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded">Simulator</span>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+            Smart Savings Simulator
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base font-medium mt-3">
-            Built specifically for organizers running modern chit funds.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-blue-500/30 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5">
-              <Layers size={20} />
+          {/* Controls */}
+          <div className="lg:col-span-7 p-5 rounded-xl bg-white border border-slate-200 flex flex-col justify-between gap-5">
+            
+            {/* Presets */}
+            <div>
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-2">Preset Models</span>
+              <div className="grid grid-cols-3 gap-2.5">
+                <button 
+                  onClick={() => applyPreset(500000, 20, 20)}
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                    totalValue === 500000 && months === 20 && bidDiscount === 20
+                      ? 'bg-blue-50 border-blue-500 text-blue-600 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Silver
+                </button>
+                <button 
+                  onClick={() => applyPreset(1000000, 20, 25)}
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                    totalValue === 1000000 && months === 20 && bidDiscount === 25
+                      ? 'bg-blue-50 border-blue-500 text-blue-600 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Gold
+                </button>
+                <button 
+                  onClick={() => applyPreset(2000000, 40, 30)}
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                    totalValue === 2000000 && months === 40 && bidDiscount === 30
+                      ? 'bg-blue-50 border-blue-500 text-blue-600 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Diamond
+                </button>
+              </div>
             </div>
-            <h3 className="text-white text-lg font-bold mb-2">Automated Math</h3>
-            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              ChitFlow dynamically handles regular contributions, auction margins, 5% organizer commissions, and dividend payouts.
-            </p>
+
+            {/* Pool Value slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Pool value</label>
+                <span className="text-xs font-black text-slate-900 bg-slate-50 py-0.5 px-2 rounded border border-slate-200">
+                  ₹{totalValue.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min={100000} 
+                max={5000000} 
+                step={50000}
+                value={totalValue}
+                onChange={(e) => setTotalValue(Number(e.target.value))}
+                className="w-full accent-blue-600 h-1 bg-slate-100 rounded cursor-pointer"
+              />
+            </div>
+
+            {/* Duration slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Duration (Months)</label>
+                <span className="text-xs font-black text-slate-900 bg-slate-50 py-0.5 px-2 rounded border border-slate-200">
+                  {months} Months
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min={10} 
+                max={50} 
+                step={5}
+                value={months}
+                onChange={(e) => setMonths(Number(e.target.value))}
+                className="w-full accent-blue-600 h-1 bg-slate-100 rounded cursor-pointer"
+              />
+            </div>
+
+            {/* Bid Discount slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Simulated Bid Discount</label>
+                <span className="text-xs font-black text-slate-900 bg-slate-50 py-0.5 px-2 rounded border border-slate-200">
+                  {bidDiscount}%
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min={5} 
+                max={40} 
+                step={1}
+                value={bidDiscount}
+                onChange={(e) => setBidDiscount(Number(e.target.value))}
+                className="w-full accent-blue-600 h-1 bg-slate-100 rounded cursor-pointer"
+              />
+            </div>
+
           </div>
 
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-indigo-500/30 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5">
-              <Users size={20} />
-            </div>
-            <h3 className="text-white text-lg font-bold mb-2">Member Directories</h3>
-            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              Easily review historical payment records, payment statuses, pending invoices, and verified profiles in real-time.
-            </p>
-          </div>
+          {/* Ledger Details */}
+          <div className="lg:col-span-5">
+            <div className="p-5 rounded-xl bg-white border border-slate-200 flex flex-col justify-between h-full">
+              <div className="space-y-3.5">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100">
+                  <span className="text-xs font-black text-blue-600 tracking-wider uppercase">Ledger Receipt</span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase">v2</span>
+                </div>
 
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-emerald-500/30 transition-all sm:col-span-2 lg:col-span-1">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5">
-              <Wallet size={20} />
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs font-semibold mb-0.5">
+                      <span className="text-slate-550">Regular Installment</span>
+                      <span className="text-slate-900 font-bold">₹{regularInstallment.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                      <div className="bg-slate-400 h-full" style={{ width: '100%' }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-semibold mb-0.5">
+                      <span className="text-slate-550">Net Monthly Pay</span>
+                      <span className="text-emerald-600 font-bold">₹{netContribution.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                      <div className="bg-emerald-500 h-full" style={{ width: `${(netContribution / regularInstallment) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-semibold mb-0.5">
+                      <span className="text-slate-550">Dividend Savings</span>
+                      <span className="text-blue-600 font-bold">₹{dividendPerMember.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-full" style={{ width: `${(dividendPerMember / regularInstallment) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 space-y-2">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-550">Winner Claimable:</span>
+                    <span className="text-indigo-650 font-black">₹{winnerPayout.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-550">Commission (5%):</span>
+                    <span className="text-slate-800">₹{organiserCommission.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Link href="/auth/admin/register" className="w-full inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider">
+                  <span>Open Workspace</span>
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
             </div>
-            <h3 className="text-white text-lg font-bold mb-2">PDF Exports &amp; Reports</h3>
-            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              Generate professional PDF statements, scheme calendars, and payment audit logs ready for printing or instant sharing.
-            </p>
           </div>
 
         </div>
       </section>
 
       {/* ════════ FAQ SECTION ════════ */}
-      <section id="faq" className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-white/5">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+      <section id="faq" className="max-w-2xl mx-auto px-4 py-8">
+        <div className="text-center mb-6">
+          <span className="text-[8px] font-black tracking-wider uppercase text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded">FAQ</span>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
             Frequently Asked Questions
           </h2>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3.5 max-w-xl mx-auto">
           {FAQS.map((faq, idx) => {
             const isOpen = openFaq === idx;
             return (
-              <div key={faq.q} className="rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+              <div 
+                key={faq.q} 
+                className={`rounded-xl border bg-white ${
+                  isOpen 
+                    ? 'border-blue-500' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => setOpenFaq(isOpen ? null : idx)}
-                  className="w-full p-5 sm:p-6 flex items-center justify-between text-left bg-transparent border-none text-white text-sm sm:text-base font-bold cursor-pointer gap-4"
+                  className="w-full p-4 flex items-center justify-between text-left bg-transparent border-none text-slate-800 text-xs sm:text-sm font-bold cursor-pointer gap-4"
                 >
-                  <span>{faq.q}</span>
-                  <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                  <span className={isOpen ? 'text-blue-600' : ''}>{faq.q}</span>
+                  <ChevronDown size={14} className={`shrink-0 text-slate-400 ${isOpen ? 'rotate-180 text-blue-600' : ''}`} />
                 </button>
+                
                 {isOpen && (
-                  <div className="px-5 sm:px-6 pb-6 text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  <div className="px-4 pb-4 text-slate-555 text-xs sm:text-sm leading-relaxed border-t border-slate-100 pt-3 font-semibold">
                     {faq.a}
                   </div>
                 )}
@@ -471,43 +512,65 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════ CTA SECTION ════════ */}
-      <section className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-blue-900/60 to-indigo-950/80 border border-blue-500/25 text-center relative overflow-hidden">
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
-            Ready to modernize your operations?
-          </h2>
-          <p className="text-blue-300 text-xs sm:text-sm max-w-lg mx-auto mb-8 leading-relaxed">
-            Join organizers executing automated distributions daily with total clarity.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/auth/admin/register" style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, padding: '0 26px', borderRadius: 12,
-              background: 'white', color: '#1e3a8a', fontSize: 13, fontWeight: 800, textDecoration: 'none'
-            }}>
-              Register as Agent
-              <ArrowRight size={15} />
-            </Link>
-            <Link href="/auth/member/login" style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, padding: '0 24px', borderRadius: 12,
-              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontSize: 13, fontWeight: 700, textDecoration: 'none'
-            }}>
-              Member Login
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* ════════ FOOTER ════════ */}
-      <footer className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-semibold">
-        <div className="flex items-center gap-2">
-          <ChitFlowMark size={24} />
-          <span>© {new Date().getFullYear()} ChitFlow Systems. All rights reserved.</span>
-        </div>
-        <div className="flex gap-6">
-          <a href="#" className="text-slate-500 hover:text-slate-300 transition-colors no-underline">Privacy Policy</a>
-          <a href="#" className="text-slate-500 hover:text-slate-300 transition-colors no-underline">Terms of Service</a>
+      <footer className="relative z-10 bg-white mt-6">
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-slate-200">
+            
+            <div className="md:col-span-6 space-y-3.5">
+              <div className="flex items-center gap-2.5">
+                <ChitFlowMark size={24} />
+                <span className="text-slate-900 font-bold text-sm tracking-tight">ChitFlow</span>
+              </div>
+              <p className="text-slate-550 text-xs sm:text-sm leading-relaxed max-w-sm font-medium">
+                The modern, automated platform for managing chit fund groups securely. Simplify monthly bidding, calculate dividends, and export audited financial records.
+              </p>
+              
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 border border-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>All systems operational</span>
+              </div>
+            </div>
+
+            <div className="md:col-span-3 space-y-2.5">
+              <h4 className="text-slate-900 font-extrabold text-[9px] uppercase tracking-wider">Resources</h4>
+              <ul className="space-y-2 text-[11px] text-slate-555 font-semibold list-none p-0 m-0">
+                <li><Link href="/auth/admin/login" className="hover:text-blue-650">Agent Console</Link></li>
+                <li><Link href="/auth/member/login" className="hover:text-blue-650">Member Portal</Link></li>
+                <li><Link href="/auth/admin/register" className="hover:text-blue-650">Create Account</Link></li>
+              </ul>
+            </div>
+
+            <div className="md:col-span-3 space-y-2.5">
+              <h4 className="text-slate-900 font-extrabold text-[9px] uppercase tracking-wider">Support</h4>
+              <ul className="space-y-2 text-[11px] text-slate-555 font-semibold list-none p-0 m-0">
+                <li className="flex items-center gap-1.5">
+                  <Mail size={11} className="text-slate-400" />
+                  <span>support@chitflow.com</span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <Phone size={11} className="text-slate-400" />
+                  <span>+91 98765 43210</span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          <div className="pt-5 flex flex-col sm:flex-row justify-between items-center gap-3 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+            <span>© {new Date().getFullYear()} ChitFlow Systems. Secure circles.</span>
+            
+            <div className="flex items-center gap-3">
+              <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+              <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+              <button 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="h-8 px-2.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-505 flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowUp size={11} /> Top
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
 
