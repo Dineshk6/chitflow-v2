@@ -33,9 +33,6 @@ const formatDate = (value?: string | Date | null) => {
   });
 };
 
-const titleCase = (value?: string) =>
-  value ? value.charAt(0) + value.slice(1).toLowerCase() : null;
-
 export function buildMemberWelcomeWhatsAppMessage({
   memberName,
   memberPhone,
@@ -45,9 +42,7 @@ export function buildMemberWelcomeWhatsAppMessage({
   liftedContribution,
   duration,
   totalAmount,
-  membersLimit,
   startDate,
-  groupStatus,
   currentMonth,
   agentName,
   agentPhone,
@@ -58,81 +53,36 @@ export function buildMemberWelcomeWhatsAppMessage({
   const lifted = money(liftedContribution);
   const value = money(totalAmount);
   const start = formatDate(startDate);
-  const statusLabel = titleCase(groupStatus);
-  const registeredOn = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 
   const lines = [
-    `✨ *Welcome to ChitFlow*`,
-    `━━━━━━━━━━━━━━━━━━`,
+    `Hi *${memberName}*, welcome to *${groupName}*.`,
+    `Thank you for trusting us with your chit. We are happy to have you.`,
     ``,
-    `Dear *${memberName}*,`,
-    ``,
-    `🎉 You have been *successfully registered* in our chit fund.`,
-    ``,
-    `📁 *Group*`,
-    `• Name: *${groupName}*`,
+    `Chits: *${chitCount}*`,
   ];
 
-  if (statusLabel) lines.push(`• Status: *${statusLabel}*`);
-  if (start) lines.push(`• Start date: *${start}*`);
-  if (currentMonth) lines.push(`• Current month: *${currentMonth}${duration ? ` of ${duration}` : ''}*`);
-
-  lines.push(``, `📋 *Your Membership*`);
-  lines.push(`• Member: *${memberName}*`);
-  if (memberPhone) lines.push(`• Mobile: *${memberPhone}*`);
-  lines.push(`• Chit tickets: *${chitCount}*`);
-  lines.push(`• Membership: *Active*`);
-  lines.push(`• Registered on: *${registeredOn}*`);
-
-  lines.push(``, `💰 *Scheme Details*`);
-  if (value) lines.push(`• Chit value: *${value}*`);
-  if (monthly) lines.push(`• Monthly contribution: *${monthly}*`);
-  if (lifted && lifted !== monthly) {
-    lines.push(`• After lift contribution: *${lifted}*`);
-  }
-  if (duration) lines.push(`• Duration: *${duration} months*`);
-  if (membersLimit) lines.push(`• Members in group: *${membersLimit}*`);
-
-  lines.push(
-    ``,
-    `📌 *What happens next*`,
-    `1️⃣ Track monthly dues & payments`,
-    `2️⃣ Join auctions when your turn comes`,
-    `3️⃣ Get updates from your agent on WhatsApp`,
-    `4️⃣ View your full summary anytime in the member app`
-  );
+  if (value) lines.push(`Chit value: *${value}*`);
+  if (monthly) lines.push(`Monthly: *${monthly}*`);
+  if (lifted && lifted !== monthly) lines.push(`After lift: *${lifted}*`);
+  if (duration) lines.push(`Duration: *${duration} months*`);
+  if (start) lines.push(`Starts: *${start}*`);
+  if (currentMonth) lines.push(`Current month: *${currentMonth}${duration ? ` of ${duration}` : ''}*`);
 
   if (loginUrl) {
-    lines.push(
-      ``,
-      `🔐 *Member Login*`,
-      loginUrl,
-      `Use your registered mobile number to sign in.`
-    );
-    if (isNewAccount) {
-      lines.push(`Temporary password: *MemberPassword123!*`);
-      lines.push(`Please change it after first login.`);
-    }
+    lines.push(``, `Login: ${loginUrl}`);
+    if (memberPhone) lines.push(`Mobile: *${memberPhone}*`);
+    if (isNewAccount) lines.push(`Password: *MemberPassword123!*`);
   }
 
   lines.push(
     ``,
-    `Thank you for trusting us. We're happy to have you on board. 🙌`,
-    ``,
-    `For any help, reply on WhatsApp or contact your agent.`
+    `We will keep you updated on payments and auctions.`,
+    `Message us anytime if you need help.`
   );
 
   if (agentName || agentPhone) {
-    lines.push(``, `━━━━━━━━━━━━━━━━━━`);
-    if (agentName) lines.push(`👤 Agent: *${agentName}*`);
-    if (agentPhone) lines.push(`📞 ${agentPhone}`);
-    lines.push(`*ChitFlow* • Smart Chit Management`);
-  } else {
-    lines.push(``, `— *ChitFlow Team*`);
+    const agent = [agentName, agentPhone].filter(Boolean).join(' · ');
+    lines.push(``, agent);
   }
 
   return lines.join('\n');

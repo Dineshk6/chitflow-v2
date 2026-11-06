@@ -104,7 +104,7 @@ function monthDate(start: Date | null, monthIndex: number) {
 
 type Col = {
   label: string;
-  x: number;
+  width: number;
   align: 'left' | 'right' | 'center';
 };
 
@@ -127,14 +127,28 @@ function paintPageNumber(doc: jsPDF, page: number, total: number) {
   doc.text(`Page ${page} of ${total}`, RIGHT, 292, { align: 'right' });
 }
 
+function columnX(cols: Col[], index: number) {
+  let x = LEFT;
+  for (let i = 0; i < index; i++) x += cols[i].width;
+  return x;
+}
+
+function cellTextX(cols: Col[], index: number) {
+  const x = columnX(cols, index);
+  const col = cols[index];
+  if (col.align === 'right') return x + col.width - 2.5;
+  if (col.align === 'center') return x + col.width / 2;
+  return x + 2.5;
+}
+
 function drawTableHeader(doc: jsPDF, y: number, cols: Col[]) {
   setFill(doc, C.ink);
   doc.rect(LEFT, y, WIDTH, 9, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   setText(doc, C.white);
-  cols.forEach((col) => {
-    doc.text(col.label, col.x, y + 6, { align: col.align });
+  cols.forEach((col, index) => {
+    doc.text(col.label, cellTextX(cols, index), y + 6, { align: col.align });
   });
   return y + 9;
 }
@@ -143,7 +157,7 @@ function drawTableHeader(doc: jsPDF, y: number, cols: Col[]) {
  * A4 scheme schedule. No calculation-model name is printed.
  * The table uses short labels and 10pt type so it stays readable on a phone.
  */
-export function downloadSchemeSchedulePdf(
+export function createSchemeSchedulePdf(
   group: SchemePdfGroup,
   agent?: SchemePdfAgent,
   options?: SchemePdfOptions
@@ -193,17 +207,17 @@ export function downloadSchemeSchedulePdf(
 
   const cols: Col[] = showLifted
     ? [
-        { label: 'MONTH', x: 22, align: 'center' },
-        { label: 'DATE', x: 36, align: 'left' },
-        { label: 'REGULAR', x: 118, align: 'right' },
-        { label: 'LIFTED', x: 154, align: 'right' },
-        { label: 'PRIZE', x: 194, align: 'right' },
+        { label: 'MONTH', width: 22, align: 'center' },
+        { label: 'DATE', width: 40, align: 'left' },
+        { label: 'REGULAR', width: 40, align: 'right' },
+        { label: 'LIFTED', width: 40, align: 'right' },
+        { label: 'PRIZE', width: 44, align: 'right' },
       ]
     : [
-        { label: 'MONTH', x: 24, align: 'center' },
-        { label: 'DATE', x: 42, align: 'left' },
-        { label: 'MONTHLY PAY', x: 140, align: 'right' },
-        { label: 'PRIZE', x: 194, align: 'right' },
+        { label: 'MONTH', width: 24, align: 'center' },
+        { label: 'DATE', width: 48, align: 'left' },
+        { label: 'MONTHLY PAY', width: 56, align: 'right' },
+        { label: 'PRIZE', width: 58, align: 'right' },
       ];
 
   const rowH = 8.2;
@@ -306,30 +320,36 @@ export function downloadSchemeSchedulePdf(
     }
 
     const mid = y + 5.5;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    setText(doc, C.ink);
-    doc.text(String(row.month), showLifted ? 22 : 24, mid, { align: 'center' });
+    const values = showLifted
+      ? [
+          String(row.month),
+          monthDate(startDate, row.month - 1),
+          rupee(row.monthlyPaymentValueRegular),
+          rupee(row.monthlyPaymentValueLifted),
+          rupee(row.bidAmount),
+        ]
+      : [
+          String(row.month),
+          monthDate(startDate, row.month - 1),
+          rupee(row.monthlyPaymentValueRegular),
+          rupee(row.bidAmount),
+        ];
+    const colors: Rgb[] = showLifted
+      ? [C.ink, C.slate700, C.ink, C.green, C.blueDark]
+      : [C.ink, C.slate700, C.ink, C.blueDark];
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
-    setText(doc, C.slate700);
-    doc.text(monthDate(startDate, row.month - 1), showLifted ? 36 : 42, mid);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    setText(doc, C.ink);
-    if (showLifted) {
-      doc.text(rupee(row.monthlyPaymentValueRegular), 118, mid, { align: 'right' });
-      setText(doc, C.green);
-      doc.text(rupee(row.monthlyPaymentValueLifted), 154, mid, { align: 'right' });
-      setText(doc, C.blueDark);
-      doc.text(rupee(row.bidAmount), 194, mid, { align: 'right' });
-    } else {
-      doc.text(rupee(row.monthlyPaymentValueRegular), 140, mid, { align: 'right' });
-      setText(doc, C.blueDark);
-      doc.text(rupee(row.bidAmount), 194, mid, { align: 'right' });
-    }
+    values.forEach((value, index) => {
+      doc.setFont('helvetica', index === 1 ? 'normal' : 'bold');
+      let size = index === 1 ? 9 : 10;
+      const maxWidth = cols[index].width - 5;
+      doc.setFontSize(size);
+      while (size > 7 && doc.getTextWidth(value) > maxWidth) {
+        size -= 0.5;
+        doc.setFontSize(size);
+      }
+      setText(doc, colors[index]);
+      doc.text(value, cellTextX(cols, index), mid, { align: cols[index].align });
+    });
 
     y += rowH;
   });
@@ -359,6 +379,16 @@ export function downloadSchemeSchedulePdf(
     paintPageNumber(doc, i, total);
   }
 
+  return doc;
+}
+
+export function downloadSchemeSchedulePdf(
+  group: SchemePdfGroup,
+  agent?: SchemePdfAgent,
+  options?: SchemePdfOptions
+) {
+  const doc = createSchemeSchedulePdf(group, agent, options);
+  const groupName = String(group.name || 'Chit');
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
