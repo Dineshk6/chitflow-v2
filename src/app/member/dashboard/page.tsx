@@ -19,10 +19,12 @@ import {
   Search,
   Wallet,
   Bell,
+  Download,
 } from 'lucide-react';
 import { formatCurrency, cn, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
 import { clearAllAuthSessions } from '@/lib/auth-client';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { MemberDashboardSkeleton } from '@/components/ui/Skeleton';
 
 function ChitFlowMark({ size = 32 }: { size?: number }) {
@@ -59,7 +61,9 @@ export default function MemberDashboard() {
   const [messageGroupId, setMessageGroupId] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'WON'>('ALL');
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('memberSession');
@@ -166,6 +170,77 @@ export default function MemberDashboard() {
 
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
+  const nextDue = (gd: any) => {
+    const duration = gd.group?.duration ?? 0;
+    const paidMonths = new Set(
+      (gd.payments ?? []).filter((p: { status: string }) => p.status === 'PAID').map((p: { month: number }) => p.month)
+    );
+    for (let month = 1; month <= duration; month += 1) {
+      if (!paidMonths.has(month)) {
+        return { month, amount: gd.group?.monthlyContribution || 0 };
+      }
+    }
+    return null;
+  };
+
+  const whatsappAgent = (gd: any, note?: string) => {
+    const phone = gd.agent?.phone;
+    if (!phone) {
+      toast.error('Your agent has not saved a mobile number');
+      return;
+    }
+    const due = nextDue(gd);
+    const lines = [
+      `Hi ${gd.agent?.name || ''},`.trim(),
+      `This is ${session?.name || 'a member'}${session?.phone ? ` (${session.phone})` : ''} from *${gd.group?.name}*.`,
+    ];
+    if (note) lines.push('', note);
+    else if (due) lines.push('', `My next due is month ${due.month} (${formatCurrency(due.amount)}).`);
+    openWhatsApp(phone, lines.filter(Boolean).join('\n'));
+  };
+
+  const statementLines = (gd: any) => {
+    const duration = gd.group?.duration ?? 0;
+    const due = nextDue(gd);
+    return [
+      gd.group?.name || 'Chit group',
+      `Member: ${session?.name || ''}`,
+      `Mobile: ${session?.phone || ''}`,
+      `Agent: ${gd.agent?.name || ''}${gd.agent?.phone ? ` (${gd.agent.phone})` : ''}`,
+      `Paid months: ${getPaidCount(gd)} of ${duration}`,
+      due ? `Next due: month ${due.month} · ${formatCurrency(due.amount)}` : 'All months paid',
+      '',
+      ...Array.from({ length: duration }, (_, i) => {
+        const month = i + 1;
+        const payment = gd.payments?.find((p: { month: number }) => p.month === month);
+        const paid = payment?.status === 'PAID';
+        const won = gd.myWins?.includes(month);
+        return `M${month}: ${won ? 'Winner' : paid ? 'Paid' : 'Pending'} · ${formatCurrency(paid ? payment?.amount || gd.group?.monthlyContribution || 0 : gd.group?.monthlyContribution || 0)}`;
+      }),
+    ];
+  };
+
+  const downloadStatement = (gd: any) => {
+    const lines = statementLines(gd);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(gd.group?.name || 'chit').replace(/\s+/g, '-')}-statement.txt`;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, 1500);
+  };
+
+  const messageTarget = () => {
+    if (messageGroupId) return groupData.find((g) => g.group.id === messageGroupId);
+    if (groupData.length === 1) return groupData[0];
+    return null;
+  };
+
   if (isLoading) {
     return <MemberDashboardSkeleton />;
   }
@@ -199,7 +274,7 @@ export default function MemberDashboard() {
             </button>
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => setConfirmLogout(true)}
               className="h-10 px-3 rounded-xl bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 text-slate-600 font-semibold text-xs flex items-center gap-1.5 transition-all"
             >
               <LogOut size={14} />
@@ -396,6 +471,15 @@ export default function MemberDashboard() {
                           >
                             {paidCount}/{duration} paid
                           </span>
+                          {(() => {
+                            const due = nextDue(gd);
+                            if (!due) return null;
+                            return (
+                              <span className="inline-flex items-center text-[11px] font-semibold bg-slate-900 text-white px-2 py-0.5 rounded-lg">
+                                Due M{due.month} · {formatCurrency(due.amount)}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -411,6 +495,11 @@ export default function MemberDashboard() {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
+                      {pending > 0 && (
+                        <p className="mt-2 text-xs font-semibold text-slate-700">
+                          Still to pay {formatCurrency(pending * monthly)}
+                        </p>
+                      )}
                     </div>
                   </button>
 
@@ -424,16 +513,116 @@ export default function MemberDashboard() {
                         className="border-t border-slate-100 bg-slate-50/60"
                       >
                         <div className="p-4 sm:p-5 space-y-3">
-                          <div className="flex items-center justify-between">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-slate-500">Agent</p>
+                              <p className="truncate text-base font-semibold text-slate-900">{gd.agent?.name || 'Agent'}</p>
+                              {gd.agent?.phone && (
+                                <p className="text-sm text-slate-500">{gd.agent.phone}</p>
+                              )}
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => whatsappAgent(gd)}
+                                className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] text-sm font-semibold text-white"
+                              >
+                                <MessageCircle size={16} />
+                                WhatsApp
+                              </button>
+                              {gd.agent?.phone ? (
+                                <a
+                                  href={`tel:${gd.agent.phone}`}
+                                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-900 text-sm font-semibold text-white"
+                                >
+                                  <Phone size={16} />
+                                  Call
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMessageGroupId(gd.group.id);
+                                    setMessageTab('send');
+                                    setIsNotifOpen(true);
+                                  }}
+                                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 text-sm font-semibold text-white"
+                                >
+                                  <Send size={16} />
+                                  Message
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => downloadStatement(gd)}
+                                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-800"
+                              >
+                                <Download size={16} />
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => whatsappAgent(gd, statementLines(gd).join('\n'))}
+                                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-800"
+                              >
+                                <Send size={16} />
+                                Share
+                              </button>
+                            </div>
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {[
+                                ['I paid', 'I have paid this month. Please confirm.'],
+                                ['My due', 'What is my pending amount?'],
+                                ['Call me', 'Please call me when you are free.'],
+                              ].map(([label, prompt]) => (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() => whatsappAgent(gd, prompt)}
+                                  className="h-10 rounded-xl border border-slate-200 bg-white px-1 text-xs font-semibold text-slate-700"
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {Array.isArray(gd.lifts) && gd.lifts.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                              {gd.lifts.map((lift: { month: number; name: string; mine?: boolean }) => (
+                                <span
+                                  key={lift.month}
+                                  className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
+                                >
+                                  M{lift.month} · {lift.mine ? 'You' : lift.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between gap-2">
                             <h4 className="text-sm font-bold text-slate-800">Payment schedule</h4>
-                            <span className="text-xs font-semibold text-slate-500">
-                              {pending} pending
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPendingOnly((v) => !v)}
+                              className={cn(
+                                'h-8 rounded-full px-3 text-xs font-semibold',
+                                pendingOnly ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                              )}
+                            >
+                              {pendingOnly ? 'Pending only' : 'All months'}
+                            </button>
                           </div>
 
                           {/* Mobile-friendly list */}
                           <div className="space-y-2">
-                            {Array.from({ length: duration }, (_, i) => i + 1).map((month) => {
+                            {Array.from({ length: duration }, (_, i) => i + 1)
+                              .filter((month) => {
+                                if (!pendingOnly) return true;
+                                const payment = gd.payments?.find((p: { month: number }) => p.month === month);
+                                return payment?.status !== 'PAID';
+                              })
+                              .map((month) => {
                               const payment = gd.payments?.find((p: { month: number }) => p.month === month);
                               const isPaid = payment?.status === 'PAID';
                               const isWin = gd.myWins?.includes(month);
@@ -649,15 +838,36 @@ export default function MemberDashboard() {
                       />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={sendMessageToAgent}
-                      disabled={isSendingMessage || !memberMessage.trim()}
-                      className="w-full h-11 rounded-xl bg-blue-600 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
-                    >
-                      {isSendingMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                      Send message
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={sendMessageToAgent}
+                        disabled={isSendingMessage || !memberMessage.trim()}
+                        className="h-11 rounded-xl bg-blue-600 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2"
+                      >
+                        {isSendingMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        In app
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const gd = messageTarget();
+                          if (!gd) {
+                            toast.error('Choose a group first');
+                            return;
+                          }
+                          if (!memberMessage.trim()) {
+                            toast.error('Type a message first');
+                            return;
+                          }
+                          whatsappAgent(gd, memberMessage.trim());
+                        }}
+                        className="h-11 rounded-xl bg-[#25D366] text-white text-sm font-bold flex items-center justify-center gap-2"
+                      >
+                        <MessageCircle size={16} />
+                        WhatsApp
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -665,6 +875,31 @@ export default function MemberDashboard() {
           </>
         )}
       </AnimatePresence>
+
+      {confirmLogout && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="logout-title">
+            <h2 id="logout-title" className="text-lg font-semibold text-slate-900">Log out?</h2>
+            <p className="mt-1 text-sm text-slate-600">You will need your mobile number to sign in again.</p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmLogout(false)}
+                className="h-11 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="h-11 rounded-xl bg-slate-900 text-sm font-semibold text-white"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

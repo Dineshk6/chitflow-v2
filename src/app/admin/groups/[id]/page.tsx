@@ -24,6 +24,7 @@ import {
   Send,
   Pencil,
   Trash2,
+  Copy,
   X,
   ArrowLeft,
   Phone
@@ -89,6 +90,7 @@ export default function GroupDetailsPage() {
 
   // Payment Tracking States
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
+  const [isReminding, setIsReminding] = useState(false);
   const [customAmounts, setCustomAmounts] = useState<{ [userId: string]: string }>({});
   const [liftAmountInput, setLiftAmountInput] = useState<string>('');
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>('none');
@@ -849,13 +851,52 @@ export default function GroupDetailsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-4 pt-4 border-t border-slate-100">
-                    <button onClick={exportToCSV} className="flex items-center gap-2 h-10 px-6 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs uppercase hover:bg-emerald-100 transition-colors">
-                      <Download size={16} /> Download CSV Ledger
+                  <div className="grid grid-cols-1 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-3">
+                    <button onClick={exportToCSV} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-50 text-sm font-semibold text-emerald-700">
+                      <Download size={16} /> Ledger
                     </button>
-                    <p className="text-xs text-slate-500 self-center font-medium">
-                      Note: Once a winner is set, dynamic dues are applied automatically to all members.
-                    </p>
+                    <button
+                      type="button"
+                      disabled={isReminding || paymentStats.pendingCount === 0}
+                      onClick={async () => {
+                        setIsReminding(true);
+                        try {
+                          const res = await fetch('/api/admin/notifications/remind-unpaid', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ groupId: group.id, month: selectedMonth }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || 'Failed');
+                          toast.success(data.message || 'Reminders sent');
+                        } catch (err: any) {
+                          toast.error(err.message || 'Could not send reminders');
+                        } finally {
+                          setIsReminding(false);
+                        }
+                      }}
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {isReminding ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      Remind {paymentStats.pendingCount || ''}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const lines = members
+                          .filter((m: any) => m.payments?.find((p: any) => p.month === selectedMonth)?.status !== 'PAID')
+                          .map((m: any) => `${m.name}${m.phone ? ` ${m.phone}` : ''}`);
+                        if (!lines.length) {
+                          toast.success('Everyone has paid this month');
+                          return;
+                        }
+                        await navigator.clipboard.writeText(lines.join('\n'));
+                        toast.success(`Copied ${lines.length} unpaid member${lines.length === 1 ? '' : 's'}`);
+                      }}
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800"
+                    >
+                      <Copy size={16} /> Copy unpaid
+                    </button>
                   </div>
                 </div>
 
@@ -868,7 +909,7 @@ export default function GroupDetailsPage() {
                 </div>
 
                 {/* Members Ledger */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto bg-white rounded-[32px] border border-slate-200 shadow-sm">
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>

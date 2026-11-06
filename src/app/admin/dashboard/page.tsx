@@ -179,6 +179,7 @@ function DashboardContent() {
 
   // Payment states
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
+  const [isReminding, setIsReminding] = useState(false);
   const [editingAmountUserId, setEditingAmountUserId] = useState<string | null>(null);
   const [customAmounts, setCustomAmounts] = useState<{ [userId: string]: string }>({});
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>('none');
@@ -1589,18 +1590,59 @@ function DashboardContent() {
 
 
 
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
+                      <div className="grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3">
                         <button
                           type="button"
                           onClick={exportToCSV}
-                          className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold uppercase tracking-wide transition-colors"
+                          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-50 text-sm font-semibold text-emerald-700"
                         >
                           <Download size={16} />
-                          Download ledger
+                          Ledger
                         </button>
-                        <p className="text-xs text-slate-500 self-center">
-                          Lifted members use the updated contribution amount from the next cycle.
-                        </p>
+                        <button
+                          type="button"
+                          disabled={isReminding || !selectedGroup || stats.pendingCount === 0}
+                          onClick={async () => {
+                            if (!selectedGroup) return;
+                            setIsReminding(true);
+                            try {
+                              const res = await fetch('/api/admin/notifications/remind-unpaid', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ groupId: selectedGroup.id, month: selectedMonth }),
+                              });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error || 'Failed');
+                              toast.success(data.message || 'Reminders sent');
+                            } catch (err: any) {
+                              toast.error(err.message || 'Could not send reminders');
+                            } finally {
+                              setIsReminding(false);
+                            }
+                          }}
+                          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:opacity-50"
+                        >
+                          {isReminding ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                          Remind {stats.pendingCount || ''}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const lines = members
+                              .filter((m: any) => m.payments?.find((p: any) => p.month === selectedMonth)?.status !== 'PAID')
+                              .map((m: any) => `${m.name}${m.phone ? ` ${m.phone}` : ''}`);
+                            if (!lines.length) {
+                              toast.success('Everyone has paid this month');
+                              return;
+                            }
+                            await navigator.clipboard.writeText(lines.join('\n'));
+                            toast.success(`Copied ${lines.length} unpaid member${lines.length === 1 ? '' : 's'}`);
+                          }}
+                          className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800"
+                        >
+                          <Copy size={16} />
+                          Copy unpaid
+                        </button>
                       </div>
                     </div>
 

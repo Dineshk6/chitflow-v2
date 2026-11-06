@@ -26,6 +26,8 @@ export async function GET(req: Request) {
             duration: true,
             membersLimit: true,
             status: true,
+            currentMonth: true,
+            admin: { select: { name: true, phone: true, mobile: true } },
             _count: { select: { members: true } }
           }
         }
@@ -45,6 +47,8 @@ export async function GET(req: Request) {
           duration: true,
           membersLimit: true,
           status: true,
+          currentMonth: true,
+          admin: { select: { name: true, phone: true, mobile: true } },
           _count: { select: { members: true } }
         }
       });
@@ -87,15 +91,37 @@ export async function GET(req: Request) {
           .filter((a: any) => a.winnerMembershipId === membership.id || (!a.winnerMembershipId && a.winnerId === memberId))
           .map((a: any) => a.month);
 
+        const winnerIds = [...new Set(auctions.map((a: any) => a.winnerId).filter(Boolean))];
+        const winnerUsers = winnerIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: winnerIds as string[] } },
+              select: { id: true, name: true },
+            })
+          : [];
+        const winnerName = new Map(winnerUsers.map((u) => [u.id, u.name]));
+        const lifts = auctions
+          .map((a: any) => ({
+            month: a.month,
+            name: winnerName.get(a.winnerId) || 'Member',
+            mine: myWins.includes(a.month),
+          }))
+          .sort((a: { month: number }, b: { month: number }) => a.month - b.month);
+
         const paidPayments = payments.filter((p: { status: string }) => p.status === 'PAID');
         const paidCount = new Set(paidPayments.map((p: { month: number }) => p.month)).size;
         const totalPaid = paidPayments.reduce((sum: number, p: { amount?: number }) => sum + (p.amount || 0), 0);
         const duration = membership.group?.duration ?? 0;
+        const admin = membership.group?.admin;
+        const { admin: _admin, ...group } = membership.group || {};
 
         return {
-          group: membership.group,
+          group,
+          agent: admin
+            ? { name: admin.name, phone: admin.phone || admin.mobile || null }
+            : null,
           payments,
           myWins,
+          lifts,
           paidCount,
           totalPaid,
           pendingMonths: Math.max(0, duration - paidCount),
