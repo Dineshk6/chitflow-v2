@@ -25,7 +25,8 @@ import {
   Pencil,
   Trash2,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Phone
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -37,10 +38,13 @@ import { AdminMetricCard } from '@/components/admin/AdminStatCard';
 import { PaymentsTableSkeleton } from '@/components/ui/Skeleton';
 
 import MemberSelectorModal from '@/components/admin/MemberSelectorModal';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { buildMemberWelcomeWhatsAppMessage, openWhatsApp } from '@/lib/whatsapp';
+import SchemePdfModal from '@/components/admin/SchemePdfModal';
 
 export default function GroupDetailsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const params = useParams();
   const groupId = params.id as string;
 
@@ -65,6 +69,7 @@ export default function GroupDetailsPage() {
 
   // Member States
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [schemePdfGroup, setSchemePdfGroup] = useState<any | null>(null);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [approvingMemberId, setApprovingMemberId] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -90,6 +95,7 @@ export default function GroupDetailsPage() {
   const [isApplyingDividend, setIsApplyingDividend] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState('ALL');
   const [winnerMessageModal, setWinnerMessageModal] = useState<{ isOpen: boolean, winner: any, text: string } | null>(null);
+  const [memberWelcomeModal, setMemberWelcomeModal] = useState<{ isOpen: boolean; member: { name: string; phone: string }; text: string } | null>(null);
 
   const [isEditInitialized, setIsEditInitialized] = useState(false);
 
@@ -251,6 +257,31 @@ export default function GroupDetailsPage() {
         setIsMemberModalOpen(false);
         fetchGroupDetails();
         fetchGroupMembers(groupId);
+
+        const memberPhone = data.user?.phone;
+        if (memberPhone) {
+          const text = buildMemberWelcomeWhatsAppMessage({
+            memberName: data.user?.name || 'Member',
+            memberPhone,
+            groupName: data.group?.name || group?.name || 'Chit Group',
+            chitCount: data.chitCount || chitCount,
+            monthlyContribution: data.group?.monthlyContribution ?? group?.monthlyContribution,
+            liftedContribution: data.group?.liftedContribution ?? group?.liftedContribution,
+            duration: data.group?.duration ?? group?.duration,
+            totalAmount: data.group?.totalAmount ?? group?.totalAmount,
+            membersLimit: data.group?.membersLimit ?? group?.membersLimit,
+            startDate: data.group?.startDate ?? group?.startDate,
+            groupStatus: data.group?.status ?? group?.status,
+            currentMonth: data.group?.currentMonth ?? group?.currentMonth,
+            agentName: session?.user?.name,
+            loginUrl: `${window.location.origin}/auth/member/login`,
+          });
+          setMemberWelcomeModal({
+            isOpen: true,
+            member: { name: data.user?.name || 'Member', phone: memberPhone },
+            text,
+          });
+        }
       } else {
         toast.error(data.error || "Failed to add member");
       }
@@ -519,224 +550,7 @@ export default function GroupDetailsPage() {
   })();
 
   const downloadGroupSchedulePDF = (group: any) => {
-    const totalAmount = group.totalAmount || group.totalValue || 0;
-    const duration = group.duration || 10;
-    const monthlyContribution = group.monthlyContribution || 0;
-    const liftedContribution = group.liftedContribution || null;
-    const calculationType = group.calculationType || 'VARIATION_1';
-    const startBid = group.startBid || null;
-    const startDate = group.startDate || null;
-    const membersLimit = group.membersLimit || duration || 20;
-
-    // Use actual commissionPct for calculation, but do not display it in the PDF
-    const commissionPct = group.commissionPct !== undefined ? group.commissionPct : 5.0;
-
-    const schedule = generateChitSchedule({
-      calculationType,
-      totalAmount,
-      duration,
-      monthlyContribution,
-      liftedContribution,
-      startBid,
-      startDate,
-      commissionPct,
-      manualSchedule: group.manualSchedule || null,
-    });
-
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const primaryColor = [37, 99, 235]; // Blue-600
-    const textDark = [15, 23, 42]; // Slate-900
-    const textMuted = [100, 116, 139]; // Slate-500
-    const bgLight = [248, 250, 252]; // Slate-50
-    const borderGray = [226, 232, 240]; // Slate-200
-
-    // Top Bar
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 4, 'F');
-
-    // Header Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('CHITFLOW', 20, 20);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('OFFICIAL SCHEME DETAIL SHEET', 20, 24);
-
-    // Agent info on top-right
-    const agentName = session?.user?.name || 'Admin';
-    const agentEmail = session?.user?.email;
-    const agentPhone = (session?.user as any)?.phone;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`AGENT: ${agentName.toUpperCase()}`, 190, 20, { align: 'right' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-
-    if (agentPhone) {
-      doc.text(`CONTACT: ${agentPhone}`, 190, 24, { align: 'right' });
-    } else if (agentEmail) {
-      doc.text(`EMAIL: ${agentEmail}`, 190, 24, { align: 'right' });
-    }
-
-    // Group Title Card
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(group.name.toUpperCase(), 20, 36);
-
-    // Scheme Details Panel (Background)
-    doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
-    doc.roundedRect(20, 42, 170, 26, 3, 3, 'F');
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.roundedRect(20, 42, 170, 26, 3, 3, 'S');
-
-    // Row 1 Inside Panel
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('TOTAL CHIT VALUE', 25, 48);
-    doc.text('MONTHLY CONTRIBUTION', 80, 48);
-    doc.text('DURATION', 140, 48);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`Rs. ${totalAmount.toLocaleString('en-IN')}`, 25, 54);
-    doc.text(`Rs. ${monthlyContribution.toLocaleString('en-IN')}`, 80, 54);
-    doc.text(`${duration} Months`, 140, 54);
-
-    // Row 2 Inside Panel
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('MEMBERS LIMIT', 25, 61);
-    doc.text('CALCULATION TYPE', 80, 61);
-    doc.text('LIFTED PAY', 140, 61);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`${membersLimit} Members`, 25, 66);
-    doc.text(
-      calculationType === 'VARIATION_1'
-        ? 'Return Pay Model'
-        : calculationType === 'MANUAL'
-          ? 'Manual Entry Model'
-          : 'Fixed Pay Model',
-      80,
-      66
-    );
-
-    if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
-      const L = liftedContribution || (monthlyContribution * 1.25);
-      doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
-    } else {
-      doc.text('-', 140, 66);
-    }
-
-    // Table Header
-    let y = 78;
-    doc.setFillColor(241, 245, 249); // Slate-100
-    doc.rect(20, y, 170, 8, 'F');
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.line(20, y, 190, y);
-    doc.line(20, y + 8, 190, y + 8);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('MONTH', 24, y + 5.5);
-    doc.text('MONTHLY CONTRIBUTION DETAILS', 55, y + 5.5);
-    doc.text('PRIZE MONEY (BID AMOUNT)', 140, y + 5.5);
-
-    y += 8;
-
-    // Render Table Rows
-    schedule.rows.forEach((row: any) => {
-      if (y > 270) {
-        doc.addPage();
-        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.rect(0, 0, 210, 4, 'F');
-
-        y = 20;
-        doc.setFillColor(241, 245, 249);
-        doc.rect(20, y, 170, 8, 'F');
-        doc.line(20, y, 190, y);
-        doc.line(20, y + 8, 190, y + 8);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-        doc.text('MONTH', 24, y + 5.5);
-        doc.text('MONTHLY CONTRIBUTION DETAILS', 55, y + 5.5);
-        doc.text('PRIZE MONEY (BID AMOUNT)', 140, y + 5.5);
-        y += 8;
-      }
-
-      if (row.month % 2 === 0) {
-        doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
-        doc.rect(20, y, 170, 7.5, 'F');
-      }
-
-      doc.setDrawColor(241, 245, 249);
-      doc.line(20, y + 7.5, 190, y + 7.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-      doc.text(String(row.month), 24, y + 5);
-
-      if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-        doc.text('Reg: ', 55, y + 5);
-        const regWidth = doc.getTextWidth('Reg: ');
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55 + regWidth, y + 5);
-        const regValWidth = doc.getTextWidth(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`);
-
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-        doc.text(' / Lifted: ', 55 + regWidth + regValWidth, y + 5);
-        const liftWidth = doc.getTextWidth(' / Lifted: ');
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(21, 128, 61); // Green-700
-        doc.text(`Rs. ${row.monthlyPaymentValueLifted.toLocaleString('en-IN')}`, 55 + regWidth + regValWidth + liftWidth, y + 5);
-      } else {
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-        doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55, y + 5);
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text(`Rs. ${row.bidAmount.toLocaleString('en-IN')}`, 140, y + 5);
-
-      y += 7.5;
-    });
-
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('Scheme PDF downloaded successfully!');
+    setSchemePdfGroup(group);
   };
 
   const exportToCSV = () => {
@@ -760,11 +574,46 @@ export default function GroupDetailsPage() {
   };
 
   const sendWhatsAppStatusMessage = (member: any) => {
+    const phone = member.phone || member.mobile;
+    if (!phone) {
+      toast.error('No phone number for this member');
+      return;
+    }
     const payment = member.payments?.find((p: any) => p.month === selectedMonth);
     const isPaid = payment?.status === 'PAID';
     const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || group?.monthlyContribution || 0;
     const text = `*ChitFlow Member Summary* 📊\n\n*Group:* ${group?.name}\n*Month:* ${selectedMonth} of ${group?.duration}\n*Amount:* ₹${amountVal.toLocaleString('en-IN')}\n*Status:* ${isPaid ? 'PAID ✅' : 'PENDING ⏳'}`;
-    window.open(`https://wa.me/91${member.phone || member.mobile}?text=${encodeURIComponent(text)}`, '_blank');
+    openWhatsApp(phone, text);
+  };
+
+  const openMemberWhatsApp = (member: any) => {
+    const phone = member.phone || member.mobile;
+    if (!phone) {
+      toast.error('No phone number for this member');
+      return;
+    }
+    const userChits = members.filter((m: any) => m.id === member.id).length || 1;
+    const text = buildMemberWelcomeWhatsAppMessage({
+      memberName: member.name,
+      memberPhone: phone,
+      groupName: group?.name || 'Chit Group',
+      chitCount: userChits,
+      monthlyContribution: group?.monthlyContribution,
+      liftedContribution: group?.liftedContribution,
+      duration: group?.duration,
+      totalAmount: group?.totalAmount,
+      membersLimit: group?.membersLimit,
+      startDate: group?.startDate,
+      groupStatus: group?.status,
+      currentMonth: group?.currentMonth,
+      agentName: session?.user?.name,
+      loginUrl: `${window.location.origin}/auth/member/login`,
+    });
+    setMemberWelcomeModal({
+      isOpen: true,
+      member: { name: member.name, phone },
+      text,
+    });
   };
 
   // ========================== RENDERING ==========================
@@ -801,11 +650,19 @@ export default function GroupDetailsPage() {
 
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/20">
+            <div className="flex items-center gap-4 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.push('/admin/dashboard')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all shrink-0"
+              >
+                <ArrowLeft size={14} />
+                Back to groups
+              </button>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/20 shrink-0">
                 {group.name.charAt(0)}
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-3xl font-black text-slate-900 dark:text-white truncate">{group.name}</h1>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 px-3 py-1 rounded-full uppercase tracking-widest">ID: {group.id.slice(-6)}</span>
@@ -1140,83 +997,130 @@ export default function GroupDetailsPage() {
 
             {/* MEMBERS LIST TAB */}
             {activeTab === 'members' && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-black text-slate-900">Enrolled Members ({group.members?.length || 0})</h3>
-                  <button onClick={() => setIsMemberModalOpen(true)} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700 transition-all">
-                    <Plus size={16} /> Add Member
-                  </button>
-                </div>
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Member</th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Contact</th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {!group.members || group.members.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="py-16 text-center text-slate-400 font-medium">
-                            No members yet. Click &quot;Add Member&quot; to get started.
-                          </td>
-                        </tr>
-                      ) : group.members.map((m: any) => (
-                        <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm">
-                                {(m.customName || m.user?.name || '?').charAt(0).toUpperCase()}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center">
+                        <Users size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Members</h3>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {group.members?.length || 0} enrolled
+                          {group.membersLimit ? ` · ${group.membersLimit} limit` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsMemberModalOpen(true)}
+                      className="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold flex items-center gap-1.5 transition-all"
+                    >
+                      <Plus size={15} /> Add member
+                    </button>
+                  </div>
+
+                  {!group.members || group.members.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-4">
+                        <Users size={22} className="text-slate-400" />
+                      </div>
+                      <h4 className="text-base font-bold text-slate-800">No members yet</h4>
+                      <p className="text-sm text-slate-500 mt-1 mb-5">Add members to start this chit group.</p>
+                      <button
+                        onClick={() => setIsMemberModalOpen(true)}
+                        className="h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold flex items-center gap-2"
+                      >
+                        <Plus size={15} /> Add first member
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {group.members.map((m: any, idx: number) => {
+                        const name = m.customName || m.user?.name || 'Member';
+                        const phone = m.user?.phone || m.user?.mobile;
+                        const avatarTone = [
+                          'bg-blue-600',
+                          'bg-indigo-600',
+                          'bg-emerald-600',
+                          'bg-slate-700',
+                          'bg-cyan-700',
+                          'bg-violet-600',
+                        ][idx % 6];
+
+                        return (
+                          <div key={m.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+                            <div className={cn('w-10 h-10 rounded-full text-white text-sm font-bold flex items-center justify-center shrink-0', avatarTone)}>
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-slate-900 truncate">{name}</p>
+                                {m.status === 'PENDING' ? (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                    Pending
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    <CheckCircle2 size={10} /> Active
+                                  </span>
+                                )}
                               </div>
-                              <div>
-                                <p className="font-bold text-slate-900">{m.customName || m.user?.name}</p>
-                                {m.customName && <p className="text-[10px] text-slate-400">({m.user?.name})</p>}
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
+                                {phone && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Phone size={11} className="text-slate-400" />
+                                    {phone}
+                                  </span>
+                                )}
+                                {m.customName && m.user?.name && (
+                                  <span className="text-slate-400">Account: {m.user.name}</span>
+                                )}
                               </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-slate-600">{m.user?.email}</p>
-                            <p className="text-xs text-slate-400">{m.user?.phone || m.user?.mobile}</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            {m.status === 'PENDING' ? (
+                            <div className="flex items-center gap-1 shrink-0">
+                              {m.status === 'PENDING' && (
+                                <button
+                                  onClick={() => handleApproveMember(m.id)}
+                                  disabled={approvingMemberId === m.id}
+                                  className="h-9 px-3 rounded-xl bg-blue-600 text-white text-xs font-bold flex items-center gap-1 hover:bg-blue-500 disabled:opacity-60"
+                                >
+                                  {approvingMemberId === m.id ? <Loader2 size={12} className="animate-spin" /> : null}
+                                  Approve
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleApproveMember(m.id)}
-                                disabled={approvingMemberId === m.id}
-                                className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center gap-1"
+                                onClick={() => openMemberWhatsApp({
+                                  id: m.userId,
+                                  name,
+                                  phone,
+                                  mobile: m.user?.mobile,
+                                })}
+                                className="h-9 w-9 rounded-xl border border-slate-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 transition-all flex items-center justify-center"
+                                title="WhatsApp"
                               >
-                                {approvingMemberId === m.id ? <Loader2 size={12} className="animate-spin" /> : null}
-                                Approve
+                                <MessageCircle size={14} />
                               </button>
-                            ) : (
-                              <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase rounded-full border border-emerald-100">Active</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => setEditMemberNameModal({ isOpen: true, membershipId: m.id, name: m.customName || m.user?.name || '' })}
-                                className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
-                                title="Edit member display name"
+                                className="h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all flex items-center justify-center"
+                                title="Edit name"
                               >
                                 <Pencil size={14} />
                               </button>
                               <button
-                                onClick={() => handleRemoveMember(m.userId, m.customName || m.user?.name)}
-                                className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
-                                title="Remove member from group"
+                                onClick={() => handleRemoveMember(m.userId, name)}
+                                className="h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex items-center justify-center"
+                                title="Remove"
                               >
                                 <Trash2 size={14} />
                               </button>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -1334,6 +1238,57 @@ export default function GroupDetailsPage() {
         </div>
       )}
 
+      {/* Member Welcome WhatsApp Modal */}
+      {memberWelcomeModal?.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                <CheckCircle2 size={24} />
+              </div>
+              <button
+                onClick={() => setMemberWelcomeModal(null)}
+                className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900">Member Registered!</h3>
+              <p className="text-sm text-slate-500 mt-2 font-medium">
+                Send a welcome WhatsApp to{' '}
+                <span className="font-bold text-slate-900">{memberWelcomeModal.member.name}</span>?
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <textarea
+                className="w-full text-sm text-slate-700 bg-transparent outline-none resize-y min-h-[220px] max-h-[360px] leading-relaxed"
+                value={memberWelcomeModal.text}
+                onChange={(e) => setMemberWelcomeModal({ ...memberWelcomeModal, text: e.target.value })}
+              />
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 text-right">Editable Message</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMemberWelcomeModal(null)}
+                className="flex-1 h-12 rounded-2xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 text-xs uppercase tracking-wider"
+              >
+                Skip
+              </button>
+              <button
+                onClick={() => {
+                  openWhatsApp(memberWelcomeModal.member.phone, memberWelcomeModal.text);
+                  setMemberWelcomeModal(null);
+                }}
+                className="flex-1 h-12 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white font-black flex items-center justify-center gap-2 text-xs uppercase tracking-wider shadow-lg shadow-green-500/20"
+              >
+                <MessageCircle size={16} /> Send WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* WhatsApp Winner Alert Modal */}
       {winnerMessageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
@@ -1344,7 +1299,10 @@ export default function GroupDetailsPage() {
               <button onClick={() => setWinnerMessageModal(null)} className="flex-1 py-3 rounded-xl bg-slate-100 font-bold text-slate-600">Cancel</button>
               <button
                 onClick={() => {
-                  window.open(`https://wa.me/91${winnerMessageModal.winner.phone || winnerMessageModal.winner.mobile}?text=${encodeURIComponent(winnerMessageModal.text)}`, '_blank');
+                  openWhatsApp(
+                    winnerMessageModal.winner.phone || winnerMessageModal.winner.mobile,
+                    winnerMessageModal.text
+                  );
                   setWinnerMessageModal(null);
                 }}
                 className="flex-1 py-3 rounded-xl bg-green-500 text-white font-bold flex items-center justify-center gap-2"
@@ -1362,6 +1320,16 @@ export default function GroupDetailsPage() {
         onClose={() => setIsMemberModalOpen(false)}
         onSelect={(userId, chitCount) => handleAddMember(userId, chitCount)}
         isSubmitting={isAddingMember}
+      />
+
+      <SchemePdfModal
+        group={schemePdfGroup}
+        agent={{
+          name: session?.user?.name,
+          email: session?.user?.email,
+          phone: (session?.user as any)?.phone,
+        }}
+        onClose={() => setSchemePdfGroup(null)}
       />
     </AdminLayout>
   );

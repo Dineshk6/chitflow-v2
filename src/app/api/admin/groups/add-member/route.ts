@@ -68,6 +68,24 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       message: `${countToAdd} chit(s) added for ${user.name} successfully!`,
+      user: {
+        id: user.id,
+        name: user.name,
+        phone: user.phone || user.mobile,
+      },
+      chitCount: countToAdd,
+      group: {
+        id: group.id,
+        name: group.name,
+        monthlyContribution: group.monthlyContribution,
+        liftedContribution: group.liftedContribution,
+        duration: group.duration,
+        totalAmount: group.totalAmount,
+        membersLimit: group.membersLimit,
+        startDate: group.startDate,
+        status: group.status,
+        currentMonth: group.currentMonth,
+      },
       memberships: createdMemberships
     });
   } catch (error: any) {

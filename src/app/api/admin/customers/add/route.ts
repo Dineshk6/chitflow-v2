@@ -30,11 +30,14 @@ export async function POST(req: Request) {
       }
     });
 
+    let isNewAccount = false;
+
     if (!user) {
       // Create a brand new member profile with dynamic placeholders
       const uniqueId = Math.random().toString(36).substring(2, 11) + "-" + Date.now();
       const defaultPassword = "MemberPassword123!";
       const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+      isNewAccount = true;
 
       user = await prisma.user.create({
         data: {
@@ -93,7 +96,21 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       message: `${countToAdd} chit(s) added for member successfully!`, 
-      user: { id: user.id, name: user.name, phone: user.phone },
+      user: { id: user.id, name: user.name, phone: user.phone || user.mobile },
+      chitCount: countToAdd,
+      isNewAccount,
+      group: {
+        id: group.id,
+        name: group.name,
+        monthlyContribution: group.monthlyContribution,
+        liftedContribution: group.liftedContribution,
+        duration: group.duration,
+        totalAmount: group.totalAmount,
+        membersLimit: group.membersLimit,
+        startDate: group.startDate,
+        status: group.status,
+        currentMonth: group.currentMonth,
+      },
       memberships: createdMemberships
     });
   } catch (error: any) {

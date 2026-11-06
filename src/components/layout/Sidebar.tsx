@@ -121,8 +121,11 @@ export default function Sidebar({ isOpen, onClose, collapsed = false }: SidebarP
               type="button"
               title={collapsed ? item.name : undefined}
               onClick={() => {
-                if (pathname.startsWith(item.href)) { onClose?.(); return; }
-                startNavigation(); setPendingHref(item.href); onClose?.(); router.push(item.href);
+                // Always navigate — clears ?group= when already on dashboard
+                startNavigation();
+                setPendingHref(item.href);
+                onClose?.();
+                router.replace(item.href);
               }}
               disabled={isPending}
               style={{

@@ -79,38 +79,36 @@ export function GroupsCatalogSkeleton() {
 
 export function MemberDashboardSkeleton() {
   return (
-    <div className="member-portal-bg min-h-screen flex">
-      <div className="hidden lg:block w-64 border-r border-slate-200 bg-white p-4 space-y-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-10 rounded-xl" />
-          <Skeleton className="h-8 w-8 rounded-lg" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-        <Skeleton className="h-10 w-full rounded-xl" />
-        <Skeleton className="h-10 w-full rounded-xl" />
-      </div>
-      <div className="flex-1 min-w-0">
-      <div className="h-14 border-b border-slate-200 bg-white px-4 flex items-center gap-3 lg:hidden">
-        <Skeleton className="h-9 w-9 rounded-lg" />
-        <Skeleton className="h-4 w-24" />
-      </div>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
-          <div className="space-y-2 flex-1">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-8 w-48" />
+    <div className="min-h-screen bg-[#f1f5f9]">
+      <div className="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between max-w-3xl mx-auto">
+        <div className="flex items-center gap-2.5">
+          <Skeleton className="h-9 w-9 rounded-xl" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-3.5 w-20" />
+            <Skeleton className="h-3 w-16" />
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <Skeleton className="h-10 w-16 rounded-xl" />
+        </div>
+      </div>
+      <div className="max-w-3xl mx-auto px-4 pt-5 space-y-5">
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <div className="grid grid-cols-3 gap-2.5">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-xl" />
+        <div className="flex gap-2">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-9 w-16 rounded-full" />
           ))}
         </div>
         {[1, 2].map((i) => (
-          <Skeleton key={i} className="h-40 rounded-3xl" />
+          <Skeleton key={i} className="h-36 w-full rounded-2xl" />
         ))}
-      </div>
       </div>
     </div>
   );

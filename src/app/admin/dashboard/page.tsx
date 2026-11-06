@@ -56,6 +56,8 @@ import { CustomSelect } from '@/components/ui/CustomSelect';
 import { toast } from 'sonner';
 import CreateGroupModal from '@/components/admin/CreateGroupModal';
 import { generateChitSchedule } from '@/lib/chitCalculations';
+import { buildMemberWelcomeWhatsAppMessage, openWhatsApp } from '@/lib/whatsapp';
+import SchemePdfModal from '@/components/admin/SchemePdfModal';
 
 const getGroupSlug = (group: any) => {
   if (!group) return '';
@@ -106,6 +108,7 @@ function DashboardContent() {
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [groupErrors, setGroupErrors] = useState<Record<string, string>>({});
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
+  const [schemePdfGroup, setSchemePdfGroup] = useState<any | null>(null);
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
 
   // Member states
@@ -180,6 +183,7 @@ function DashboardContent() {
   const [customAmounts, setCustomAmounts] = useState<{ [userId: string]: string }>({});
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>('none');
   const [winnerMessageModal, setWinnerMessageModal] = useState<{ isOpen: boolean, winner: any, text: string } | null>(null);
+  const [memberWelcomeModal, setMemberWelcomeModal] = useState<{ isOpen: boolean; member: { name: string; phone: string }; text: string } | null>(null);
   const [liftAmountInput, setLiftAmountInput] = useState<string>('');
   const [isApplyingDividend, setIsApplyingDividend] = useState<boolean>(false);
 
@@ -188,22 +192,58 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (groups.length > 0) {
-      if (groupSlug) {
-        const targetId = groupSlug.includes('-')
-          ? groupSlug.split('-').pop()
-          : groupSlug;
-        const found = groups.find(g => g.id === targetId);
-        if (found) {
-          setSelectedGroup(found);
-        } else {
-          setSelectedGroup(null);
-        }
-      } else {
-        setSelectedGroup(null);
-      }
+    if (!groupSlug) {
+      setSelectedGroup(null);
+      return;
     }
+    if (groups.length === 0) return;
+
+    // Prefer trailing Mongo ObjectId (24 hex), fallback to last slug segment
+    const targetId =
+      groupSlug.match(/([a-f0-9]{24})$/i)?.[1] ||
+      (groupSlug.includes('-') ? groupSlug.split('-').pop() : groupSlug);
+
+    const found = groups.find((g) => g.id === targetId);
+    setSelectedGroup(found || null);
   }, [groupSlug, groups]);
+
+  const goBackToGroups = () => {
+    setSelectedGroup(null);
+    setSelectedMembershipIds([]);
+    setMemberSearchQuery('');
+    setActiveTab('payments');
+    router.replace('/admin/dashboard');
+  };
+
+  const openMemberWhatsApp = (member: any) => {
+    const phone = member.phone || member.mobile;
+    if (!phone) {
+      toast.error('No phone number for this member');
+      return;
+    }
+    const userChits = members.filter((m: any) => m.id === member.id).length || 1;
+    const text = buildMemberWelcomeWhatsAppMessage({
+      memberName: member.name,
+      memberPhone: phone,
+      groupName: selectedGroup?.name || 'Chit Group',
+      chitCount: userChits,
+      monthlyContribution: selectedGroup?.monthlyContribution,
+      liftedContribution: selectedGroup?.liftedContribution,
+      duration: selectedGroup?.duration,
+      totalAmount: selectedGroup?.totalAmount,
+      membersLimit: selectedGroup?.membersLimit,
+      startDate: selectedGroup?.startDate,
+      groupStatus: selectedGroup?.status,
+      currentMonth: selectedGroup?.currentMonth,
+      agentName: session?.user?.name,
+      loginUrl: `${window.location.origin}/auth/member/login`,
+    });
+    setMemberWelcomeModal({
+      isOpen: true,
+      member: { name: member.name, phone },
+      text,
+    });
+  };
 
   useEffect(() => {
     if (selectedGroup) {
@@ -391,10 +431,38 @@ function DashboardContent() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         toast.success(`${countToAdd} chit(s) added successfully!`);
         setIsMemberModalOpen(false);
+        const memberName = data.user?.name || memberFormData.name;
+        const memberPhone = data.user?.phone || memberFormData.phone;
         setMemberFormData({ name: '', phone: '', chitCount: 1 });
         fetchGroupMembers(selectedGroup.id);
+
+        if (memberPhone) {
+          const text = buildMemberWelcomeWhatsAppMessage({
+            memberName,
+            memberPhone,
+            groupName: data.group?.name || selectedGroup.name,
+            chitCount: data.chitCount || countToAdd,
+            monthlyContribution: data.group?.monthlyContribution ?? selectedGroup.monthlyContribution,
+            liftedContribution: data.group?.liftedContribution ?? selectedGroup.liftedContribution,
+            duration: data.group?.duration ?? selectedGroup.duration,
+            totalAmount: data.group?.totalAmount ?? selectedGroup.totalAmount,
+            membersLimit: data.group?.membersLimit ?? selectedGroup.membersLimit,
+            startDate: data.group?.startDate ?? selectedGroup.startDate,
+            groupStatus: data.group?.status ?? selectedGroup.status,
+            currentMonth: data.group?.currentMonth ?? selectedGroup.currentMonth,
+            agentName: session?.user?.name,
+            loginUrl: `${window.location.origin}/auth/member/login`,
+            isNewAccount: Boolean(data.isNewAccount),
+          });
+          setMemberWelcomeModal({
+            isOpen: true,
+            member: { name: memberName, phone: memberPhone },
+            text,
+          });
+        }
       } else {
         const errorData = await res.json();
         toast.error(errorData.error || "Failed to add member to group");
@@ -705,6 +773,11 @@ function DashboardContent() {
   };
 
   const sendWhatsAppStatusMessage = (member: any) => {
+    const phone = member.phone || member.mobile;
+    if (!phone) {
+      toast.error('No phone number for this member');
+      return;
+    }
     const payment = member.payments?.find((p: any) => p.month === selectedMonth);
     const isPaid = payment?.status === 'PAID';
     const amountVal = payment?.amount || parseFloat(customAmounts[member.id]) || selectedGroup?.monthlyContribution || 0;
@@ -719,229 +792,11 @@ function DashboardContent() {
       `*Payment Status:* ${isPaid ? 'PAID ✅' : 'PENDING ⏳'}\n\n` +
       `View your full dashboard here: ${dashboardUrl}`;
 
-    const url = `https://wa.me/91${member.phone || member.mobile}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    openWhatsApp(phone, text);
   };
 
   const downloadGroupSchedulePDF = (group: any) => {
-    const totalAmount = group.totalAmount || group.totalValue || 0;
-    const duration = group.duration || 10;
-    const monthlyContribution = group.monthlyContribution || 0;
-    const liftedContribution = group.liftedContribution || null;
-    const calculationType = group.calculationType || 'VARIATION_1';
-    const startBid = group.startBid || null;
-    const startDate = group.startDate || null;
-    const membersLimit = group.membersLimit || duration || 20;
-
-    // Use actual commissionPct for calculation, but do not display it in the PDF
-    const commissionPct = group.commissionPct !== undefined ? group.commissionPct : 5.0;
-
-    const schedule = generateChitSchedule({
-      calculationType,
-      totalAmount,
-      duration,
-      monthlyContribution,
-      liftedContribution,
-      startBid,
-      startDate,
-      commissionPct,
-      manualSchedule: group.manualSchedule || null,
-    });
-
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const primaryColor = [37, 99, 235]; // Blue-600
-    const textDark = [15, 23, 42]; // Slate-900
-    const textMuted = [100, 116, 139]; // Slate-500
-    const bgLight = [248, 250, 252]; // Slate-50
-    const borderGray = [226, 232, 240]; // Slate-200
-
-    // Top Bar
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 4, 'F');
-
-    // Header Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('CHITFLOW', 20, 20);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('OFFICIAL SCHEME DETAIL SHEET', 20, 24);
-
-    // Agent info on top-right
-    const agentName = session?.user?.name || 'Admin';
-    const agentEmail = session?.user?.email;
-    const agentPhone = (session?.user as any)?.phone;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`AGENT: ${agentName.toUpperCase()}`, 190, 20, { align: 'right' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-
-    if (agentPhone) {
-      doc.text(`CONTACT: ${agentPhone}`, 190, 24, { align: 'right' });
-    } else if (agentEmail) {
-      doc.text(`EMAIL: ${agentEmail}`, 190, 24, { align: 'right' });
-    }
-
-    // Group Title Card
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(group.name.toUpperCase(), 20, 36);
-
-    // Scheme Details Panel (Background)
-    doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
-    doc.roundedRect(20, 42, 170, 26, 3, 3, 'F');
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.roundedRect(20, 42, 170, 26, 3, 3, 'S');
-
-    // Row 1 Inside Panel
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('TOTAL CHIT VALUE', 25, 48);
-    doc.text('MONTHLY CONTRIBUTION', 80, 48);
-    doc.text('DURATION', 140, 48);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`Rs. ${totalAmount.toLocaleString('en-IN')}`, 25, 54);
-    doc.text(`Rs. ${monthlyContribution.toLocaleString('en-IN')}`, 80, 54);
-    doc.text(`${duration} Months`, 140, 54);
-
-    // Row 2 Inside Panel
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('MEMBERS LIMIT', 25, 61);
-    doc.text('CALCULATION TYPE', 80, 61);
-    doc.text('LIFTED PAY', 140, 61);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(`${membersLimit} Members`, 25, 66);
-    doc.text(
-      calculationType === 'VARIATION_1'
-        ? 'Return Pay Model'
-        : calculationType === 'MANUAL'
-          ? 'Manual Entry Model'
-          : 'Fixed Pay Model',
-      80,
-      66
-    );
-
-    if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
-      const L = liftedContribution || (monthlyContribution * 1.25);
-      doc.text(`Rs. ${L.toLocaleString('en-IN')}`, 140, 66);
-    } else {
-      doc.text('-', 140, 66);
-    }
-
-    // Table Header
-    let y = 78;
-    doc.setFillColor(241, 245, 249); // Slate-100
-    doc.rect(20, y, 170, 8, 'F');
-    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
-    doc.line(20, y, 190, y);
-    doc.line(20, y + 8, 190, y + 8);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    doc.text('MONTH', 24, y + 5.5);
-    doc.text('MONTHLY CONTRIBUTION DETAILS', 55, y + 5.5);
-    doc.text('PRIZE MONEY (BID AMOUNT)', 140, y + 5.5);
-
-    y += 8;
-
-    // Render Table Rows
-    schedule.rows.forEach((row: any) => {
-      if (y > 270) {
-        doc.addPage();
-        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.rect(0, 0, 210, 4, 'F');
-
-        y = 20;
-        doc.setFillColor(241, 245, 249);
-        doc.rect(20, y, 170, 8, 'F');
-        doc.line(20, y, 190, y);
-        doc.line(20, y + 8, 190, y + 8);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-        doc.text('MONTH', 24, y + 5.5);
-        doc.text('MONTHLY CONTRIBUTION DETAILS', 55, y + 5.5);
-        doc.text('PRIZE MONEY (BID AMOUNT)', 140, y + 5.5);
-        y += 8;
-      }
-
-      if (row.month % 2 === 0) {
-        doc.setFillColor(bgLight[0], bgLight[1], bgLight[2]);
-        doc.rect(20, y, 170, 7.5, 'F');
-      }
-
-      doc.setDrawColor(241, 245, 249);
-      doc.line(20, y + 7.5, 190, y + 7.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-      doc.text(String(row.month), 24, y + 5);
-
-      if (calculationType === 'VARIATION_1' || calculationType === 'MANUAL') {
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-        doc.text('Reg: ', 55, y + 5);
-        const regWidth = doc.getTextWidth('Reg: ');
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55 + regWidth, y + 5);
-        const regValWidth = doc.getTextWidth(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`);
-
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-        doc.text(' / Lifted: ', 55 + regWidth + regValWidth, y + 5);
-        const liftWidth = doc.getTextWidth(' / Lifted: ');
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(21, 128, 61); // Green-700
-        doc.text(`Rs. ${row.monthlyPaymentValueLifted.toLocaleString('en-IN')}`, 55 + regWidth + regValWidth + liftWidth, y + 5);
-      } else {
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-        doc.text(`Rs. ${row.monthlyPaymentValueRegular.toLocaleString('en-IN')}`, 55, y + 5);
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text(`Rs. ${row.bidAmount.toLocaleString('en-IN')}`, 140, y + 5);
-
-      y += 7.5;
-    });
-
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${group.name.replace(/\s+/g, '_')}_Scheme_Schedule.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('Scheme PDF downloaded successfully!');
+    setSchemePdfGroup(group);
   };
 
   const exportToPDF = (member: any) => {
@@ -1617,8 +1472,8 @@ function DashboardContent() {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => router.push('/admin/dashboard')}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all whitespace-nowrap"
+                          onClick={goBackToGroups}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all whitespace-nowrap relative z-10"
                         >
                           <ArrowLeft size={14} />
                           <span>Back to groups</span>
@@ -2128,221 +1983,256 @@ function DashboardContent() {
 
                 {/* ---------------- MEMBERS DIRECTORY TAB ---------------- */}
                 {activeTab === 'members' && (
-                  <div className="space-y-8 animate-fadeIn pb-24">
-                    
-                    {/* ── Minimal Premium Toolbar ── */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                      {/* Search */}
-                      <div className="relative w-full sm:w-[320px] group">
-                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                          <Search className="text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Search members..."
-                          value={memberSearchQuery}
-                          onChange={(e) => setMemberSearchQuery(e.target.value)}
-                          className="w-full h-11 pl-11 pr-4 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 shadow-sm"
-                        />
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-3 w-full sm:w-auto">
-                        {members.length > 0 && (
-                          <button
-                            onClick={() => setIsRemoveAllModalOpen(true)}
-                            title="Clear group"
-                            className="h-11 px-4 rounded-full border border-red-200 dark:border-red-900/40 text-red-500 bg-transparent hover:bg-red-50 dark:hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-2 font-semibold text-sm"
-                          >
-                            <Trash2 size={16} />
-                            <span className="hidden sm:inline">Clear All</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setIsMemberModalOpen(true)}
-                          className="flex-1 sm:flex-none h-11 px-6 rounded-full bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
-                        >
-                          <Plus size={16} />
-                          Add Member
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* ── Member Cards Grid ── */}
-                    {isLoadingMembers ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                          <div key={i} className="h-40 rounded-[24px] bg-slate-100/50 dark:bg-slate-800/30 animate-pulse border border-slate-200/50 dark:border-slate-700/30" />
-                        ))}
-                      </div>
-                    ) : filteredMembers.length === 0 ? (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col items-center justify-center py-20 px-4 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] bg-slate-50/30 dark:bg-slate-900/20"
-                      >
-                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                          <Users size={28} className="text-slate-400" />
-                        </div>
-                        <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">No members yet</h4>
-                        <p className="text-sm text-slate-500 mt-1 mb-6 max-w-[250px]">
-                          {memberSearchQuery ? "Try adjusting your search query." : "Add members to start managing this chit group."}
-                        </p>
-                        {!memberSearchQuery && (
-                          <button
-                            onClick={() => setIsMemberModalOpen(true)}
-                            className="h-10 px-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md active:scale-95"
-                          >
-                            <Plus size={16} /> Enrol First Member
-                          </button>
-                        )}
-                      </motion.div>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            Directory <span className="text-slate-400 ml-1 font-medium">({filteredMembers.length})</span>
-                          </h3>
-                          <button
-                            onClick={() => {
-                              const allIds = filteredMembers.map((m: any, i: number) => m.membershipId || `${m.id}-${i}`);
-                              const allSelected = allIds.every((id: string) => selectedMembershipIds.includes(id));
-                              setSelectedMembershipIds(allSelected ? [] : allIds);
-                            }}
-                            className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                          >
-                            {filteredMembers.length > 0 && filteredMembers.every((m: any, i: number) => selectedMembershipIds.includes(m.membershipId || `${m.id}-${i}`))
-                              ? "Deselect All" : "Select All"}
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                          {filteredMembers.map((member: any, idx: number) => {
-                            const memKey = member.membershipId || `${member.id}-${idx}`;
-                            const isChecked = selectedMembershipIds.includes(memKey);
-                            const hasLifted = member.liftedMonths && member.liftedMonths.length > 0;
-                            const avatarColors = [
-                              'from-blue-600 to-cyan-500',
-                              'from-violet-600 to-fuchsia-500',
-                              'from-emerald-500 to-teal-400',
-                              'from-rose-500 to-orange-400',
-                              'from-amber-500 to-yellow-400',
-                              'from-indigo-600 to-blue-500',
-                            ];
-                            const color = avatarColors[idx % avatarColors.length];
-
-                            return (
-                              <div
-                                key={memKey}
-                                onClick={() => {
-                                  setSelectedMembershipIds(prev =>
-                                    isChecked ? prev.filter(id => id !== memKey) : [...prev, memKey]
-                                  )
-                                }}
-                                className={`group relative flex flex-col p-5 bg-white dark:bg-slate-900 rounded-[24px] border transition-all duration-300 cursor-pointer ${
-                                  isChecked
-                                    ? 'border-blue-500 ring-[3px] ring-blue-500/10 shadow-md shadow-blue-500/5'
-                                    : 'border-slate-200/80 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]'
-                                }`}
-                              >
-                                {/* Circular Checkbox (Top Right) */}
-                                <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                                  isChecked
-                                    ? 'bg-blue-600 border-blue-600 text-white scale-100 opacity-100'
-                                    : 'border-slate-300 dark:border-slate-600 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100'
-                                }`}>
-                                  {isChecked && <Check size={12} strokeWidth={4} />}
-                                </div>
-
-                                <div className="flex items-center gap-3 mb-4">
-                                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${color} text-white text-lg font-black flex items-center justify-center shrink-0 shadow-inner`}>
-                                    {member.name.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="min-w-0 pr-8">
-                                    <h4 className="text-base font-black text-slate-900 dark:text-white truncate">{member.name}</h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                                      {member.phone || 'No phone'}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {hasLifted && (
-                                  <div className="mb-4">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200/60 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50 uppercase tracking-widest">
-                                      <Trophy size={10} /> Won
-                                    </span>
-                                  </div>
-                                )}
-                                
-                                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-end gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const userChits = members.filter((m: any) => m.id === member.id).length;
-                                      setEditMemberModal({
-                                        isOpen: true,
-                                        membershipId: member.membershipId,
-                                        userId: member.id,
-                                        name: member.name,
-                                        phone: member.phone || '',
-                                        chitCount: userChits,
-                                        initialChitCount: userChits
-                                      });
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-full transition-colors"
-                                    title="Edit"
-                                  >
-                                    <Edit3 size={16} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setMemberToDelete(member);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors"
-                                    title="Remove"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
-
-                    {/* ── Dynamic Island Selection Dock ── */}
-                    <AnimatePresence>
-                      {selectedMembershipIds.length > 0 && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 50, scale: 0.9 }}
-                          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-4 py-3 rounded-full bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-xl text-white dark:text-slate-900 shadow-2xl shadow-slate-900/20 border border-slate-800 dark:border-white ring-1 ring-white/10 dark:ring-slate-900/10"
-                        >
-                          <div className="flex items-center gap-3 pl-2 border-r border-white/20 dark:border-slate-900/20 pr-4">
-                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-black text-xs">
-                              {selectedMembershipIds.length}
-                            </div>
-                            <span className="text-sm font-bold">Selected</span>
+                  <div className="space-y-4 animate-fadeIn pb-24">
+                    <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
+                      {/* Toolbar */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                            <Users size={16} />
                           </div>
-                          
-                          <div className="flex items-center gap-2">
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-bold text-slate-900">Members</h3>
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              {filteredMembers.length} enrolled
+                              {selectedGroup?.membersLimit ? ` · ${selectedGroup.membersLimit} limit` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <div className="relative flex-1 sm:w-56">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <input
+                              type="text"
+                              placeholder="Search name or phone"
+                              value={memberSearchQuery}
+                              onChange={(e) => setMemberSearchQuery(e.target.value)}
+                              className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 outline-none text-sm text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                          {members.length > 0 && (
                             <button
-                              onClick={() => setSelectedMembershipIds([])}
-                              className="h-9 px-4 rounded-full text-xs font-bold text-slate-300 dark:text-slate-600 hover:bg-white/10 dark:hover:bg-slate-900/10 transition-all"
-                            >
-                              Clear
-                            </button>
-                            <button
-                              onClick={() => setIsRemoveSelectedModalOpen(true)}
-                              className="h-9 px-5 rounded-full bg-red-500 hover:bg-red-600 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+                              onClick={() => setIsRemoveAllModalOpen(true)}
+                              title="Clear group"
+                              className="h-10 w-10 sm:w-auto sm:px-3 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5 text-xs font-semibold"
                             >
                               <Trash2 size={14} />
-                              Remove
+                              <span className="hidden sm:inline">Clear</span>
                             </button>
+                          )}
+                          <button
+                            onClick={() => setIsMemberModalOpen(true)}
+                            className="h-10 px-3.5 sm:px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold flex items-center gap-1.5 transition-all shrink-0"
+                          >
+                            <Plus size={15} />
+                            <span className="hidden xs:inline sm:inline">Add</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* List */}
+                      {isLoadingMembers ? (
+                        <div className="divide-y divide-slate-100">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <div key={i} className="px-4 sm:px-5 py-4 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 animate-pulse" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-3.5 w-36 bg-slate-100 rounded animate-pulse" />
+                                <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : filteredMembers.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-4">
+                            <Users size={22} className="text-slate-400" />
                           </div>
+                          <h4 className="text-base font-bold text-slate-800">No members yet</h4>
+                          <p className="text-sm text-slate-500 mt-1 mb-5 max-w-[260px]">
+                            {memberSearchQuery ? 'No matches for your search.' : 'Add members to start this chit group.'}
+                          </p>
+                          {!memberSearchQuery && (
+                            <button
+                              onClick={() => setIsMemberModalOpen(true)}
+                              className="h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold flex items-center gap-2"
+                            >
+                              <Plus size={15} /> Add first member
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="hidden sm:flex items-center justify-between px-5 py-2.5 bg-slate-50/80 border-b border-slate-100">
+                            <button
+                              onClick={() => {
+                                const allIds = filteredMembers.map((m: any, i: number) => m.membershipId || `${m.id}-${i}`);
+                                const allSelected = allIds.every((id: string) => selectedMembershipIds.includes(id));
+                                setSelectedMembershipIds(allSelected ? [] : allIds);
+                              }}
+                              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
+                            >
+                              {filteredMembers.every((m: any, i: number) => selectedMembershipIds.includes(m.membershipId || `${m.id}-${i}`))
+                                ? 'Deselect all'
+                                : 'Select all'}
+                            </button>
+                            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Actions</span>
+                          </div>
+
+                          <div className="divide-y divide-slate-100">
+                            {filteredMembers.map((member: any, idx: number) => {
+                              const memKey = member.membershipId || `${member.id}-${idx}`;
+                              const isChecked = selectedMembershipIds.includes(memKey);
+                              const hasLifted = member.liftedMonths && member.liftedMonths.length > 0;
+                              const chitCount = members.filter((m: any) => m.id === member.id).length;
+                              const avatarTone = [
+                                'bg-blue-600',
+                                'bg-indigo-600',
+                                'bg-emerald-600',
+                                'bg-slate-700',
+                                'bg-cyan-700',
+                                'bg-violet-600',
+                              ][idx % 6];
+
+                              return (
+                                <div
+                                  key={memKey}
+                                  onClick={() => {
+                                    setSelectedMembershipIds((prev) =>
+                                      isChecked ? prev.filter((id) => id !== memKey) : [...prev, memKey]
+                                    );
+                                  }}
+                                  className={cn(
+                                    'group flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 cursor-pointer transition-colors',
+                                    isChecked ? 'bg-blue-50/70' : 'hover:bg-slate-50/80'
+                                  )}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedMembershipIds((prev) =>
+                                        isChecked ? prev.filter((id) => id !== memKey) : [...prev, memKey]
+                                      );
+                                    }}
+                                    className={cn(
+                                      'w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
+                                      isChecked
+                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                        : 'border-slate-300 bg-white group-hover:border-blue-400'
+                                    )}
+                                    aria-label="Select member"
+                                  >
+                                    {isChecked && <Check size={11} strokeWidth={3} />}
+                                  </button>
+
+                                  <div className={cn('w-10 h-10 rounded-full text-white text-sm font-bold flex items-center justify-center shrink-0', avatarTone)}>
+                                    {member.name.charAt(0).toUpperCase()}
+                                  </div>
+
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-sm font-bold text-slate-900 truncate">{member.name}</h4>
+                                      {hasLifted && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                          <Trophy size={10} /> Lifted
+                                        </span>
+                                      )}
+                                      {chitCount > 1 && (
+                                        <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                          {chitCount} chits
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
+                                      <span className="inline-flex items-center gap-1">
+                                        <Phone size={11} className="text-slate-400" />
+                                        {member.phone || member.mobile || 'No phone'}
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 text-emerald-600">
+                                        <CheckCircle2 size={11} />
+                                        Active
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openMemberWhatsApp(member);
+                                      }}
+                                      className="h-9 w-9 rounded-xl border border-slate-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 transition-all flex items-center justify-center"
+                                      title="WhatsApp"
+                                    >
+                                      <MessageCircle size={15} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditMemberModal({
+                                          isOpen: true,
+                                          membershipId: member.membershipId,
+                                          userId: member.id,
+                                          name: member.name,
+                                          phone: member.phone || '',
+                                          chitCount,
+                                          initialChitCount: chitCount,
+                                        });
+                                      }}
+                                      className="h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all flex items-center justify-center"
+                                      title="Edit"
+                                    >
+                                      <Edit3 size={14} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMemberToDelete(member);
+                                      }}
+                                      className="h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all flex items-center justify-center"
+                                      title="Remove"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Selection dock */}
+                    <AnimatePresence>
+                      {selectedMembershipIds.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 40, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 40, scale: 0.96 }}
+                          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/25 border border-slate-700"
+                        >
+                          <div className="flex items-center gap-2.5 pl-1.5 pr-3 border-r border-white/15">
+                            <div className="w-6 h-6 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-xs">
+                              {selectedMembershipIds.length}
+                            </div>
+                            <span className="text-sm font-semibold">selected</span>
+                          </div>
+                          <button
+                            onClick={() => setSelectedMembershipIds([])}
+                            className="h-9 px-3 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/10 transition-all"
+                          >
+                            Clear
+                          </button>
+                          <button
+                            onClick={() => setIsRemoveSelectedModalOpen(true)}
+                            className="h-9 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+                          >
+                            <Trash2 size={13} />
+                            Remove
+                          </button>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -2364,6 +2254,16 @@ function DashboardContent() {
         onSubmit={handleCreateGroupViaModal}
         isSubmitting={isSubmittingGroup}
         group={editingGroup}
+      />
+
+      <SchemePdfModal
+        group={schemePdfGroup}
+        agent={{
+          name: session?.user?.name,
+          email: session?.user?.email,
+          phone: (session?.user as any)?.phone,
+        }}
+        onClose={() => setSchemePdfGroup(null)}
       />
 
       {/* --- ADD GROUP MEMBER MODAL --- */}
@@ -2611,6 +2511,74 @@ function DashboardContent() {
                   className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 cursor-pointer disabled:opacity-50"
                 >
                   {isRemovingAllMembers ? <Loader2 size={16} className="animate-spin" /> : 'Remove All'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- MEMBER WELCOME WHATSAPP MODAL --- */}
+      <AnimatePresence>
+        {memberWelcomeModal?.isOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMemberWelcomeModal(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-6 shadow-2xl border border-slate-200"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100">
+                  <CheckCircle2 size={24} />
+                </div>
+                <button
+                  onClick={() => setMemberWelcomeModal(null)}
+                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <h3 className="text-xl font-black text-slate-900 leading-tight">
+                Member Registered!
+              </h3>
+              <p className="text-sm text-slate-500 mt-2 font-medium">
+                Send a welcome WhatsApp message to{' '}
+                <span className="font-bold text-slate-900">{memberWelcomeModal.member.name}</span>?
+              </p>
+
+              <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                <textarea
+                  className="w-full text-sm text-slate-700 bg-transparent outline-none resize-y min-h-[220px] max-h-[360px] leading-relaxed"
+                  value={memberWelcomeModal.text}
+                  onChange={(e) => setMemberWelcomeModal({ ...memberWelcomeModal, text: e.target.value })}
+                />
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 text-right">Editable Message</p>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setMemberWelcomeModal(null)}
+                  className="flex-1 h-12 rounded-2xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-wider"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => {
+                    openWhatsApp(memberWelcomeModal.member.phone, memberWelcomeModal.text);
+                    setMemberWelcomeModal(null);
+                  }}
+                  className="flex-1 h-12 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white font-black transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider shadow-lg shadow-green-500/20"
+                >
+                  <MessageCircle size={16} /> Send WhatsApp
                 </button>
               </div>
             </motion.div>
